@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Pembayaran #{{ order.id }} - {{ config.STORE_NAME }}{% endblock %}
+{% block content %}
+<div class="row mt-4">
+    <div class="col-md-8 offset-md-2">
+        <div class="alert alert-info">
+            Pembayaran dilakukan melalui Xendit.
+            <a href="{{ url_for('orders.order_detail', order_id=order.id) }}" class="alert-link">Klik di sini</a> untuk melanjutkan pembayaran.
+        </div>
+    </div>
+</div>
+{% endblock %}

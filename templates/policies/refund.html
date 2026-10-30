@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Kebijakan Pengembalian — {{ config.STORE_NAME }}{% endblock %}
+{% block meta_description %}Pahami kebijakan pengembalian dan refund di {{ config.STORE_NAME }}. Kami ingin Anda sepenuhnya puas dengan pembelian Anda.{% endblock %}
+
+{% block content %}
+<div class="policy-page container">
+  <div class="policy-header">
+    <h1 class="policy-title">Kebijakan Pengembalian</h1>
+    <p class="policy-updated">Terakhir diperbarui: 1 Mei 2025</p>
+  </div>
+
+  <div class="policy-body">
+
+    <section class="policy-section">
+      <h2>1. Kelayakan Pengembalian</h2>
+      <p>Kami menerima permintaan pengembalian dalam <strong>3 hari</strong> dari tanggal pengiriman, dengan syarat:</p>
+      <ul>
+        <li>Barang belum digunakan, belum dicuci, dan dalam kondisi asli</li>
+        <li>Tag dan kemasan asli masih utuh</li>
+        <li>Barang tidak ditandai sebagai final sale</li>
+      </ul>
+    </section>
+
+    <section class="policy-section">
+      <h2>2. Barang yang Tidak Dapat Dikembalikan</h2>
+      <p>Barang berikut tidak memenuhi syarat untuk pengembalian atau refund:</p>
+      <ul>
+        <li>Barang yang ditandai sebagai "Final Sale" atau barang diskon</li>
+        <li>Barang yang telah dicuci, dipakai, atau rusak oleh pelanggan</li>
+        <li>Barang yang dikembalikan setelah jangka waktu 3 hari</li>
+      </ul>
+    </section>
+
+    <section class="policy-section">
+      <h2>3. Cara Meminta Pengembalian</h2>
+      <p>Untuk mengajukan pengembalian, silakan hubungi kami dalam 3 hari setelah menerima pesanan:</p>
+      <ul>
+        <li>WhatsApp: <a href="https://wa.me/{{ config.WHATSAPP_NUMBER }}" target="_blank" rel="noopener">Chat dengan kami</a></li>
+      </ul>
+      <p>Sertakan nomor pesanan, foto barang, dan deskripsi masalah. Kami akan meninjau permintaan Anda dan merespons dalam 2 hari kerja.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>4. Proses Refund</h2>
+      <p>Setelah pengembalian Anda disetujui dan barang diterima serta diperiksa, kami akan memproses refund dalam <strong>5–7 hari kerja</strong>. Refund diterbitkan ke metode pembayaran asli yang digunakan saat checkout.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>5. Barang Cacat atau Salah</h2>
+      <p>Jika Anda menerima barang cacat atau salah, kami mohon maaf. Silakan hubungi kami segera dengan foto barang. Dalam kasus seperti ini, kami akan menanggung biaya pengiriman pengembalian dan menawarkan refund penuh atau penggantian.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>6. Pengiriman Pengembalian</h2>
+      <p>Kecuali barang cacat atau salah, pelanggan bertanggung jawab atas biaya pengiriman pengembalian. Kami merekomendasikan menggunakan layanan pengiriman yang dapat dilacak, karena kami tidak dapat menjamin penerimaan barang yang dikembalikan tanpa pelacakan.</p>
+    </section>
+
+  </div>
+</div>
+{% endblock %}

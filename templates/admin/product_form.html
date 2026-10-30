@@ -1,0 +1,972 @@
+{% extends 'base.html' %}
+{% block title %}{% if product %}Edit Product{% else %}New Product{% endif %} — Admin{% endblock %}
+
+{% block content %}
+<!-- ADMIN HEADER -->
+<section class="admin-header">
+  <div class="admin-header-content">
+    <div>
+      <span class="admin-label">Products</span>
+      <h1 class="admin-title">{% if product %}Edit Product{% else %}New Product{% endif %}</h1>
+    </div>
+    <div class="admin-header-actions">
+      <a href="{{ url_for('admin.product_list') }}" class="btn btn-outline btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Back to list
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- PRODUCT FORM -->
+<section class="admin-section">
+  <div class="admin-container" style="max-width:960px;">
+    <form method="post" enctype="multipart/form-data" id="product-form" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <!-- ── TAB NAV ───────────────────────────────────────────────────── -->
+      <div class="pf-tabs{% if product %} pf-tabs--scrollable{% endif %}">
+        <button type="button" class="pf-tab active" data-tab="info">
+          <i class="bi bi-info-circle"></i><span>Info</span>
+        </button>
+        <button type="button" class="pf-tab" data-tab="gallery">
+          <i class="bi bi-images"></i><span>Gallery</span>
+          {% if product and (product.images or product.image) %}
+          <span class="pf-tab-badge">{{ product.images|length if product.images else 1 }}</span>
+          {% endif %}
+        </button>
+        <button type="button" class="pf-tab" data-tab="variants">
+          <i class="bi bi-sliders"></i><span>Variants</span>
+          {% if product and product.variants %}
+          <span class="pf-tab-badge">{{ product.variants|length }}</span>
+          {% endif %}
+        </button>
+        <button type="button" class="pf-tab" data-tab="shipping">
+          <i class="bi bi-truck"></i><span>Shipping</span>
+        </button>
+        <button type="button" class="pf-tab" data-tab="discount">
+          <i class="bi bi-tag"></i><span>Discount</span>
+          {% if product and product.discount %}
+          <span class="pf-tab-badge"><i class="bi bi-check"></i></span>
+          {% endif %}
+        </button>
+        <button type="button" class="pf-tab" data-tab="marketplace">
+          <i class="bi bi-shop"></i><span>Marketplace</span>
+          {% if product and product.shopee_url %}
+          <span class="pf-tab-badge"><i class="bi bi-check"></i></span>
+          {% endif %}
+        </button>
+        <button type="button" class="pf-tab" data-tab="seo">
+          <i class="bi bi-search"></i><span>SEO</span>
+        </button>
+      </div>
+
+      <!-- ── TAB: INFO ─────────────────────────────────────────────────── -->
+      <div class="pf-panel active" id="tab-info">
+        <div class="pf-panel-header">
+          <h2 class="pf-panel-title">Product Information</h2>
+          <p class="pf-panel-desc">Core details shown on the storefront.</p>
+        </div>
+
+        <div class="pf-field-row">
+          <div class="pf-field pf-field--2">
+            <label class="pf-label">Product Name <span class="pf-required">*</span></label>
+            <input type="text" name="name" id="field-name" class="form-control"
+                   value="{{ product.name if product else '' }}" required
+                   placeholder="e.g. Hijab Segi Empat Premium">
+          </div>
+          <div class="pf-field pf-field--1">
+            <label class="pf-label">Status</label>
+            <div class="pf-toggle-wrapper">
+              <label class="pf-toggle">
+                <input type="checkbox" name="is_active" id="is_active"
+                       {% if not product or product.is_active %}checked{% endif %}>
+                <span class="pf-toggle-track"></span>
+                <span class="pf-toggle-label" id="active-label">
+                  {{ 'Active' if not product or product.is_active else 'Inactive' }}
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="pf-field-row">
+          <div class="pf-field pf-field--1">
+            <label class="pf-label">Base Price (Rp) <span class="pf-required">*</span></label>
+            <div class="pf-input-prefix">
+              <span class="pf-prefix">Rp</span>
+              <input type="number" name="price" class="form-control"
+                     value="{{ product.price if product else '' }}"
+                     required min="1" placeholder="0">
+            </div>
+            <small class="pf-hint">Default price for variants set to "Use Base".</small>
+          </div>
+          <div class="pf-field pf-field--1">
+            <label class="pf-label">Base Sizes</label>
+            <input type="text" name="sizes" class="form-control"
+                   value="{{ product.sizes if product else '' }}"
+                   placeholder="e.g. S, M, L, XL">
+            <small class="pf-hint">Available sizes. Used when variant size is "Use Base".</small>
+          </div>
+        </div>
+
+        <div class="pf-field-row">
+          <div class="pf-field pf-field--1">
+            <label class="pf-label">Base Stock <span class="pf-required">*</span></label>
+            <input type="number" name="stock" class="form-control"
+                   value="{{ product.stock if product else '0' }}"
+                   required min="0">
+            <small class="pf-hint">Used for products without variants.</small>
+          </div>
+        </div>
+
+        <div class="pf-field">
+          <label class="pf-label">Description</label>
+          <textarea name="description" class="form-control" rows="5"
+                    placeholder="Describe the product…">{{ product.description if product else '' }}</textarea>
+        </div>
+
+        <div class="pf-field-row">
+          <div class="pf-field">
+            <label class="pf-label">Materials & Care</label>
+            <textarea name="materials_care" class="form-control" rows="4"
+                      placeholder="e.g., Fabric composition, washing instructions…">{{ product.materials_care if product else '' }}</textarea>
+            <small class="pf-hint">HTML allowed. Shown in Materials & Care accordion.</small>
+          </div>
+          <div class="pf-field">
+            <label class="pf-label">Shipping & Returns</label>
+            <textarea name="shipping_returns" class="form-control" rows="4"
+                      placeholder="e.g., Delivery time, return policy…">{{ product.shipping_returns if product else '' }}</textarea>
+            <small class="pf-hint">HTML allowed. Shown in Shipping & Returns accordion.</small>
+          </div>
+        </div>
+
+        <div class="pf-field-row">
+          <div class="pf-field">
+            <label class="pf-label">Size Guide</label>
+            <textarea name="size_guide" class="form-control" rows="4"
+                      placeholder="e.g., Size chart HTML table…">{{ product.size_guide if product else '' }}</textarea>
+            <small class="pf-hint">HTML allowed. Shown in Size Guide accordion.</small>
+          </div>
+          {% if product %}
+          <div class="pf-field pf-field--1">
+            <label class="pf-label">Sold Count</label>
+            <div class="pf-readonly">
+              <span class="pf-readonly-value">{{ '{:,}'.format(product.sold_count or 0) }} units</span>
+            </div>
+            <small class="pf-hint">Auto-updated when orders are completed.</small>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- ── TAB: GALLERY ──────────────────────────────────────────────── -->
+      <div class="pf-panel" id="tab-gallery">
+        <div class="pf-panel-header">
+          <h2 class="pf-panel-title">Product Gallery</h2>
+          <p class="pf-panel-desc">First image is used as the primary thumbnail. Click ✕ to remove.</p>
+        </div>
+
+        <!-- Existing images grid -->
+        {% set has_images = product and product.images %}
+        {% set has_legacy = product and product.image and not has_images %}
+        {% if has_images or has_legacy %}
+        <div class="pf-gallery" id="gallery-existing">
+          {% if has_images %}
+            {% for img in product.images %}
+            <div class="pf-gallery-item" data-img-id="{{ img.id }}">
+              <img src="{{ url_for('static', filename=img.image_path) }}"
+                   alt="{{ img.alt_text or product.name }}"
+                   class="pf-gallery-img">
+              {% if loop.first %}
+              <span class="pf-gallery-primary-badge">
+                <i class="bi bi-star-fill"></i> Primary
+              </span>
+              {% endif %}
+              <div class="pf-gallery-overlay">
+                <label class="pf-gallery-delete" title="Delete on save">
+                  <input type="checkbox" name="delete_image_id" value="{{ img.id }}">
+                  <i class="bi bi-trash3"></i>
+                </label>
+              </div>
+            </div>
+            {% endfor %}
+          {% elif has_legacy %}
+            <div class="pf-gallery-item pf-gallery-item--legacy">
+              <img src="{{ url_for('static', filename=product.image) }}"
+                   alt="{{ product.name }}" class="pf-gallery-img">
+              <span class="pf-gallery-primary-badge">
+                <i class="bi bi-star-fill"></i> Primary
+              </span>
+              <div class="pf-gallery-overlay">
+                <span class="pf-gallery-legacy-tag">Legacy</span>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- New upload drop zone -->
+        <div class="pf-dropzone" id="dropzone">
+          <input type="file" name="images" id="gallery-input"
+                 accept="image/png,image/jpeg,image/jpg" multiple
+                 class="pf-dropzone-input">
+          <div class="pf-dropzone-body">
+            <i class="bi bi-cloud-arrow-up pf-dropzone-icon"></i>
+            <p class="pf-dropzone-text">
+              <strong>Click to upload</strong> or drag & drop
+            </p>
+            <p class="pf-dropzone-hint">PNG, JPG, JPEG — max 10 MB each</p>
+          </div>
+        </div>
+
+        <!-- New-file preview grid (populated by JS) -->
+        <div class="pf-gallery pf-gallery--new mt-3" id="gallery-preview" style="display:none;"></div>
+      </div>
+
+      <!-- ── TAB: VARIANTS ─────────────────────────────────────────────── -->
+      <div class="pf-panel" id="tab-variants">
+        <div class="pf-panel-header">
+          <h2 class="pf-panel-title">Product Variants</h2>
+          <p class="pf-panel-desc">
+            Color, Image, SKU, Stock, and Active.
+            Price, Size, and Weight are inherited from the product.
+          </p>
+        </div>
+
+        <!-- Variant table header -->
+        <div class="pf-variant-header d-none d-md-grid">
+          <span>Color</span><span>Color Image</span><span>SKU</span>
+          <span>Stock</span><span>Active</span><span></span>
+        </div>
+
+        <div id="variants-container">
+          {% if product and product.variants %}
+            {% for v in product.variants %}
+            <div class="pf-variant-row">
+              <input type="hidden" name="variant_id" value="{{ v.id }}">
+
+              <!-- Color (always required) -->
+              <div class="pf-variant-cell" data-label="Color">
+                <input type="text" name="variant_color" class="form-control form-control-sm"
+                       value="{{ v.color or '' }}" placeholder="e.g. Black" required>
+              </div>
+
+              <!-- Color Image (always shown) -->
+              <div class="pf-variant-cell pf-variant-cell--color-image" data-label="Color Image">
+                <div class="pf-color-image-wrapper">
+                  {% if v.color_image_path %}
+                  <div class="pf-color-image-preview">
+                    <img src="{{ url_for('static', filename=v.color_image_path) }}" alt="{{ v.color or 'Color' }}" class="pf-color-image-thumb">
+                    <label class="pf-color-image-delete" title="Remove color image">
+                      <input type="checkbox" name="delete_variant_color_image" value="{{ v.id }}">
+                      <i class="bi bi-trash3"></i>
+                    </label>
+                  </div>
+                  {% endif %}
+                  <input type="file" name="variant_color_image" class="form-control form-control-sm pf-color-image-input"
+                         accept="image/png,image/jpeg,image/jpg,image/webp"
+                         {% if v.color_image_path %}style="display:none;"{% endif %}>
+                </div>
+              </div>
+
+              <!-- SKU (always shown) -->
+              <div class="pf-variant-cell" data-label="SKU">
+                <input type="text" name="variant_sku" class="form-control form-control-sm"
+                       value="{{ v.sku or '' }}" placeholder="AUTO">
+              </div>
+
+              <!-- Stock (always required) -->
+              <div class="pf-variant-cell" data-label="Stock">
+                <input type="number" name="variant_stock" class="form-control form-control-sm"
+                       value="{{ v.stock }}" min="0" required>
+              </div>
+
+              <!-- Active (always shown) -->
+              <div class="pf-variant-cell pf-variant-cell--center" data-label="Active">
+                <input type="checkbox" name="variant_active" class="form-check-input"
+                       {% if v.is_active %}checked{% endif %}>
+              </div>
+
+              <div class="pf-variant-cell pf-variant-cell--center">
+                <button type="button" class="pf-variant-remove" title="Remove variant">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+            </div>
+            {% endfor %}
+          {% endif %}
+        </div>
+
+        <button type="button" id="add-variant-btn" class="pf-add-variant-btn">
+          <i class="bi bi-plus-lg me-1"></i>Add Variant
+        </button>
+
+        <!-- Variant count summary -->
+        <div id="variant-summary" class="pf-variant-summary" style="display:none;"></div>
+      </div>
+
+      <!-- ── TAB: SHIPPING ─────────────────────────────────────────────── -->
+      <div class="pf-panel" id="tab-shipping">
+        <div class="pf-panel-header">
+          <h2 class="pf-panel-title">Shipping</h2>
+          <p class="pf-panel-desc">
+            Base weight is used for shipping calculation. Variants can override with "Custom" weight.
+            Biteship requires weight &gt; 0 g.
+          </p>
+        </div>
+
+        <div class="pf-field-row">
+          <div class="pf-field pf-field--1">
+            <label class="pf-label">Base Weight (grams) <span class="pf-required">*</span></label>
+            <div class="pf-input-suffix">
+              <input type="number" step="0.01" name="weight" class="form-control"
+                     value="{{ product.weight if product and product.weight else '' }}"
+                     required min="0.01" placeholder="e.g. 200">
+              <span class="pf-suffix">g</span>
+            </div>
+            <small class="pf-hint">Default weight for variants set to "Use Base".</small>
+          </div>
+          <div class="pf-field pf-field--1">
+            <label class="pf-label">Effective Stock</label>
+            <div class="form-control pf-readonly-field" style="background:var(--color-gray-50);">
+              {% if product %}
+                {{ product.effective_stock }}
+                <small style="color:var(--color-gray-500);font-size:0.75rem;">
+                  {% if product.variants %} (sum of active variants) {% else %} (base stock) {% endif %}
+                </small>
+              {% else %}
+                —
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="pf-info-box">
+          <i class="bi bi-info-circle-fill me-2"></i>
+          Shipping rates are calculated live at checkout via <strong>Biteship</strong> using the
+          weight and the buyer's postal code. Ensure weight is accurate.
+        </div>
+      </div>
+
+      <!-- ── TAB: DISCOUNT ─────────────────────────────────────────────── -->
+      <div class="pf-panel" id="tab-discount">
+        <div class="pf-panel-header">
+          <h2 class="pf-panel-title">Product Discount</h2>
+          <p class="pf-panel-desc">Apply a discount to the product base price. Set the type, value, and optional active period.</p>
+        </div>
+
+        {% set discount = product.discount if product and product.discount else None %}
+        {% set discount_type = discount.discount_type if discount else 'fixed' %}
+        {% set discount_value = discount.value if discount else '' %}
+        {% set discount_is_active = discount.is_active if discount else True %}
+
+        <div class="pf-field-row">
+          <div class="pf-field pf-field--2">
+            <label class="pf-label" for="discount-name">Discount Name</label>
+            <input type="text" id="discount-name" name="discount_name" class="form-control"
+                   value="{{ discount.name if discount else '' }}"
+                   maxlength="100"
+                   placeholder="e.g. Summer Sale"
+                   aria-describedby="discount-name-hint">
+            <small class="pf-hint" id="discount-name-hint">Optional internal label for this discount.</small>
+          </div>
+          <div class="pf-field pf-field--1">
+            <label class="pf-label">Status</label>
+            <div class="pf-toggle-wrapper">
+              <label class="pf-toggle" for="discount-is-active">
+                <input type="checkbox" name="discount_is_active" id="discount-is-active"
+                       {% if discount_is_active %}checked{% endif %}>
+                <span class="pf-toggle-track"></span>
+                <span class="pf-toggle-label" id="discount-active-label">
+                  {{ 'Active' if discount_is_active else 'Inactive' }}
+                </span>
+              </label>
+            </div>
+            <small class="pf-hint">Inactive discounts are ignored by the storefront.</small>
+          </div>
+        </div>
+
+        <div class="pf-field-row">
+          <div class="pf-field pf-field--1">
+            <label class="pf-label" for="discount-type">Discount Type</label>
+            <select id="discount-type" name="discount_type" class="form-control"
+                    aria-describedby="discount-type-hint">
+              <option value="percentage" {% if discount_type == 'percentage' %}selected{% endif %}>
+                Percentage (%)
+              </option>
+              <option value="fixed" {% if discount_type == 'fixed' %}selected{% endif %}>
+                Fixed Amount (Rp)
+              </option>
+            </select>
+            <small class="pf-hint" id="discount-type-hint">Percentage is calculated from the base price.</small>
+          </div>
+          <div class="pf-field pf-field--1">
+            <label class="pf-label" for="discount-value">Discount Value</label>
+            <div class="pf-input-prefix">
+              <span class="pf-prefix" id="discount-value-symbol">Rp</span>
+              <input type="number" id="discount-value" name="discount_value" class="form-control"
+                     value="{{ discount_value }}"
+                     min="0" step="1" placeholder="0"
+                     aria-describedby="discount-value-hint">
+            </div>
+            <small class="pf-hint" id="discount-value-hint">Fixed amount in Rupiah.</small>
+          </div>
+        </div>
+
+        <div class="pf-field-row">
+          <div class="pf-field pf-field--1">
+            <label class="pf-label" for="discount-starts-at">Start Date</label>
+            <input type="datetime-local" id="discount-starts-at" name="discount_starts_at" class="form-control"
+                   value="{{ discount.starts_at | utc_to_wib if discount and discount.starts_at else '' }}"
+                   aria-describedby="discount-starts-hint">
+            <small class="pf-hint" id="discount-starts-hint">Leave empty to start immediately.</small>
+          </div>
+          <div class="pf-field pf-field--1">
+            <label class="pf-label" for="discount-ends-at">End Date</label>
+            <input type="datetime-local" id="discount-ends-at" name="discount_ends_at" class="form-control"
+                   value="{{ discount.ends_at | utc_to_wib if discount and discount.ends_at else '' }}"
+                   aria-describedby="discount-ends-hint">
+            <small class="pf-hint" id="discount-ends-hint">Leave empty for no end date.</small>
+          </div>
+        </div>
+
+        <!-- ── Discount price preview ──────────────────────────────────── -->
+        <div id="discount-preview" class="pf-discount-preview pf-discount-preview--hidden">
+          <div class="pf-dp-cell">
+            <div class="pf-dp-label">Base Price</div>
+            <div class="pf-dp-value" id="dp-base">Rp 0</div>
+          </div>
+          <div class="pf-dp-cell">
+            <div class="pf-dp-label">Savings</div>
+            <div class="pf-dp-value pf-dp-value--savings" id="dp-savings">Rp 0</div>
+            <div class="pf-dp-badge" id="dp-badge">0%</div>
+          </div>
+          <div class="pf-dp-cell">
+            <div class="pf-dp-label">Final Price</div>
+            <div class="pf-dp-value pf-dp-value--final" id="dp-final">Rp 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: MARKETPLACE ────────────────────────────────────────────── -->
+      <div class="pf-panel" id="tab-marketplace">
+        <div class="pf-panel-header">
+          <h2 class="pf-panel-title">Marketplace Links</h2>
+          <p class="pf-panel-desc">External marketplace links for this product.</p>
+        </div>
+
+        <div class="pf-field">
+          <label class="pf-label" for="shopee-url">Shopee URL</label>
+          <input type="url" id="shopee-url" name="shopee_url" class="form-control"
+                 value="{{ product.shopee_url if product else '' }}"
+                 maxlength="1000" placeholder="https://shopee.co.id/..."
+                 aria-describedby="shopee-url-hint">
+          <small class="pf-hint" id="shopee-url-hint">Official Shopee product link (optional).</small>
+        </div>
+      </div>
+
+      <!-- ── TAB: SEO ───────────────────────────────────────────────────── -->
+      <div class="pf-panel" id="tab-seo">
+        <div class="pf-panel-header">
+          <h2 class="pf-panel-title">SEO</h2>
+          <p class="pf-panel-desc">Slug is auto-generated from the product name and cannot be edited manually.</p>
+        </div>
+
+        <div class="pf-field">
+          <label class="pf-label">URL Slug</label>
+          <div class="pf-slug-preview">
+            <span class="pf-slug-base">/products/</span>
+            <span class="pf-slug-value" id="slug-display">
+              {%- if product and product.slug -%}
+                {{ product.slug }}
+              {%- else -%}
+                <em style="color:var(--color-gray-400)">generated on save</em>
+              {%- endif -%}
+            </span>
+          </div>
+          <input type="text" class="form-control mt-2" id="slug-readonly" readonly
+                 value="{{ product.slug if product and product.slug else '' }}"
+                 placeholder="Generated automatically from the product name"
+                 style="background:var(--color-gray-50);font-family:monospace;font-size:0.875rem;">
+          <small class="pf-hint">
+            Re-generated when the product name changes.
+            {% if product and product.slug_history %}
+              <span class="ms-2" style="color:var(--color-gray-500);">
+                <i class="bi bi-arrow-repeat"></i>
+                {{ product.slug_history|length }} previous slug{{ 's' if product.slug_history|length != 1 }} preserved for redirect.
+              </span>
+            {% endif %}
+          </small>
+        </div>
+
+        <div class="pf-field mt-4">
+          <label class="pf-label">Canonical URL</label>
+          <div class="pf-copy-field">
+            <input type="text" class="form-control" id="canonical-url" readonly
+                   value="{% if product and product.slug %}{{ request.host_url }}products/{{ product.slug }}{% endif %}"
+                   placeholder="Available after first save"
+                   style="font-family:monospace;font-size:0.8125rem;">
+            <button type="button" class="pf-copy-btn" id="copy-url-btn" title="Copy URL">
+              <i class="bi bi-clipboard"></i>
+            </button>
+          </div>
+        </div>
+
+        {% if product and product.slug_history %}
+        <div class="pf-field mt-4">
+          <label class="pf-label">Redirect History</label>
+          <div class="pf-slug-history">
+            {% for h in product.slug_history|sort(attribute='replaced_at', reverse=True) %}
+            <div class="pf-slug-history-row">
+              <code class="pf-slug-history-slug">/products/{{ h.slug }}</code>
+              <span class="pf-slug-history-arrow"><i class="bi bi-arrow-right"></i> 301 → current</span>
+              <span class="pf-slug-history-date">{{ h.replaced_at.strftime('%d %b %Y') }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          <small class="pf-hint">Old URLs automatically redirect to the current canonical slug.</small>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ── STICKY SAVE BAR ───────────────────────────────────────────── -->
+      <div class="pf-save-bar">
+        <div class="pf-save-bar-inner">
+          <div class="pf-save-bar-status" id="save-bar-status"></div>
+          <div class="pf-save-bar-actions">
+            <a href="{{ url_for('admin.product_list') }}" class="btn btn-outline">Cancel</a>
+            <button type="submit" class="btn btn-primary" id="save-btn">
+              <i class="bi bi-check-lg me-1"></i>
+              {% if product %}Save Changes{% else %}Create Product{% endif %}
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </form>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  'use strict';
+
+  /* ── Tabs ─────────────────────────────────────────────────────────── */
+  const tabs   = document.querySelectorAll('.pf-tab');
+  const panels = document.querySelectorAll('.pf-panel');
+  const tabNav = document.querySelector('.pf-tabs--scrollable');
+
+  function activateTab(name) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    panels.forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+    sessionStorage.setItem('pf-active-tab', name);
+    const activeTab = tabNav && tabNav.querySelector(`[data-tab="${name}"]`);
+    if (activeTab) activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }
+
+  tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)));
+
+  if (tabNav) {
+    let activePointer = null;
+    let startX = 0;
+    let startScrollLeft = 0;
+    let dragged = false;
+
+    tabNav.addEventListener('pointerdown', event => {
+      if (event.pointerType !== 'mouse' || event.button !== 0) return;
+      activePointer = event.pointerId;
+      startX = event.clientX;
+      startScrollLeft = tabNav.scrollLeft;
+      dragged = false;
+    });
+    tabNav.addEventListener('pointermove', event => {
+      if (event.pointerId !== activePointer) return;
+      const distance = event.clientX - startX;
+      if (!dragged && Math.abs(distance) > 4) {
+        dragged = true;
+        tabNav.classList.add('is-dragging');
+        tabNav.setPointerCapture(event.pointerId);
+      }
+      if (dragged) tabNav.scrollLeft = startScrollLeft - distance;
+    });
+    tabNav.addEventListener('pointerup', event => {
+      if (event.pointerId !== activePointer) return;
+      activePointer = null;
+      if (tabNav.hasPointerCapture(event.pointerId)) tabNav.releasePointerCapture(event.pointerId);
+      tabNav.classList.remove('is-dragging');
+    });
+    tabNav.addEventListener('click', event => {
+      if (!dragged) return;
+      event.preventDefault();
+      event.stopPropagation();
+      dragged = false;
+    }, true);
+  }
+
+  // Restore last tab on page load (useful after a failed save)
+  const saved = sessionStorage.getItem('pf-active-tab');
+  if (saved && document.getElementById('tab-' + saved)) activateTab(saved);
+
+  /* ── Active toggle label ─────────────────────────────────────────── */
+  const activeChk = document.getElementById('is_active');
+  const activeLbl = document.getElementById('active-label');
+  if (activeChk && activeLbl) {
+    activeChk.addEventListener('change', function () {
+      activeLbl.textContent = this.checked ? 'Active' : 'Inactive';
+    });
+  }
+
+  /* ── Discount panel helpers ─────────────────────────────────────── */
+  const discountTypeSelect = document.getElementById('discount-type');
+  const discountValueSymbol = document.getElementById('discount-value-symbol');
+  const discountValueHint = document.getElementById('discount-value-hint');
+  const discountIsActive = document.getElementById('discount-is-active');
+  const discountActiveLabel = document.getElementById('discount-active-label');
+
+  function updateDiscountTypeUI() {
+    if (!discountTypeSelect) return;
+    const isPercentage = discountTypeSelect.value === 'percentage';
+    if (discountValueSymbol) discountValueSymbol.textContent = isPercentage ? '%' : 'Rp';
+    if (discountValueHint) {
+      discountValueHint.textContent = isPercentage
+        ? 'Enter 0–100. Discount is calculated from the base price.'
+        : 'Fixed amount in Rupiah.';
+    }
+  }
+
+  if (discountTypeSelect) {
+    updateDiscountTypeUI();
+    discountTypeSelect.addEventListener('change', updateDiscountTypeUI);
+  }
+
+  if (discountIsActive && discountActiveLabel) {
+    discountIsActive.addEventListener('change', function () {
+      discountActiveLabel.textContent = this.checked ? 'Active' : 'Inactive';
+    });
+  }
+
+  /* ── Discount price preview ──────────────────────────────────── */
+  const discountValueInput = document.getElementById('discount-value');
+  const discountPreview    = document.getElementById('discount-preview');
+  const dpBase    = document.getElementById('dp-base');
+  const dpSavings = document.getElementById('dp-savings');
+  const dpFinal   = document.getElementById('dp-final');
+  const dpBadge   = document.getElementById('dp-badge');
+  const priceInput = document.querySelector('input[name="price"]');
+
+  function fmtRp(n) {
+    return 'Rp\u00a0' + Math.round(n).toLocaleString('id-ID');
+  }
+
+  function updateDiscountPreview() {
+    if (!discountPreview || !discountValueInput || !priceInput) return;
+    const basePrice    = parseInt(priceInput.value, 10) || 0;
+    const discountVal  = parseInt(discountValueInput.value, 10) || 0;
+    const discountType = discountTypeSelect ? discountTypeSelect.value : 'fixed';
+
+    if (discountVal <= 0 || basePrice <= 0) {
+      discountPreview.classList.add('pf-discount-preview--hidden');
+      return;
+    }
+
+    let savings;
+    if (discountType === 'percentage') {
+      savings = Math.round(basePrice * Math.min(discountVal, 100) / 100);
+    } else {
+      savings = Math.min(discountVal, basePrice);
+    }
+    const finalPrice = basePrice - savings;
+    const savingsPct = basePrice > 0 ? Math.round(savings / basePrice * 100) : 0;
+
+    dpBase.textContent    = fmtRp(basePrice);
+    dpSavings.textContent = fmtRp(savings);
+    dpFinal.textContent   = fmtRp(finalPrice);
+    dpBadge.textContent   = savingsPct + '%\u00a0off';
+    discountPreview.classList.remove('pf-discount-preview--hidden');
+  }
+
+  if (discountValueInput) discountValueInput.addEventListener('input', updateDiscountPreview);
+  if (discountTypeSelect) discountTypeSelect.addEventListener('change', updateDiscountPreview);
+  if (priceInput) priceInput.addEventListener('input', updateDiscountPreview);
+  updateDiscountPreview();
+
+  /* ── Gallery drop zone ───────────────────────────────────────────── */
+  const dropzone    = document.getElementById('dropzone');
+  const galleryInput= document.getElementById('gallery-input');
+  const previewGrid = document.getElementById('gallery-preview');
+
+  if (dropzone) {
+    dropzone.addEventListener('click', () => galleryInput.click());
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('pf-dropzone--over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('pf-dropzone--over'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.classList.remove('pf-dropzone--over');
+      addFiles(e.dataTransfer.files);
+    });
+    galleryInput.addEventListener('change', () => addFiles(galleryInput.files));
+  }
+
+  const stagedFiles = new DataTransfer();
+
+  function addFiles(fileList) {
+    Array.from(fileList).forEach(f => {
+      if (!f.type.startsWith('image/')) return;
+      stagedFiles.items.add(f);
+      const reader = new FileReader();
+      reader.onload = ev => renderPreviewCard(ev.target.result, f.name, stagedFiles.files.length - 1);
+      reader.readAsDataURL(f);
+    });
+    galleryInput.files = stagedFiles.files;
+    previewGrid.style.display = stagedFiles.files.length ? 'grid' : 'none';
+  }
+
+  function renderPreviewCard(src, name, idx) {
+    const card = document.createElement('div');
+    card.className = 'pf-gallery-item pf-gallery-item--new';
+    card.dataset.newIdx = idx;
+    card.innerHTML = `
+      <img src="${src}" alt="${name}" class="pf-gallery-img">
+      ${idx === 0 && !document.querySelector('#gallery-existing .pf-gallery-item') ? '<span class="pf-gallery-primary-badge"><i class="bi bi-star-fill"></i> Primary</span>' : ''}
+      <div class="pf-gallery-overlay">
+        <button type="button" class="pf-gallery-delete pf-gallery-delete--new" title="Remove">
+          <i class="bi bi-trash3"></i>
+        </button>
+      </div>`;
+    previewGrid.appendChild(card);
+
+    card.querySelector('.pf-gallery-delete--new').addEventListener('click', function () {
+      const dt = new DataTransfer();
+      const i = parseInt(card.dataset.newIdx, 10);
+      Array.from(stagedFiles.files).forEach((f, fi) => { if (fi !== i) dt.items.add(f); });
+      // Re-index
+      stagedFiles.items.clear();
+      Array.from(dt.files).forEach(f => stagedFiles.items.add(f));
+      galleryInput.files = stagedFiles.files;
+      card.remove();
+      if (!stagedFiles.files.length) previewGrid.style.display = 'none';
+      // Re-number data-new-idx on remaining
+      previewGrid.querySelectorAll('.pf-gallery-item--new').forEach((c, ci) => c.dataset.newIdx = ci);
+    });
+  }
+
+  /* ── Existing image delete toggle ────────────────────────────────── */
+  document.querySelectorAll('.pf-gallery-item input[name="delete_image_id"]').forEach(cb => {
+    const item = cb.closest('.pf-gallery-item');
+    const btn  = cb.closest('.pf-gallery-delete');
+    cb.addEventListener('change', function () {
+      item.classList.toggle('pf-gallery-item--deleted', this.checked);
+      if (btn) btn.classList.toggle('pf-gallery-delete--active', this.checked);
+    });
+    // Make parent label trigger checkbox properly
+    if (btn) {
+      btn.addEventListener('click', () => {
+        cb.checked = !cb.checked;
+        cb.dispatchEvent(new Event('change'));
+      });
+    }
+  });
+
+  /* ── Variant color image delete toggle ───────────────────────────── */
+  document.querySelectorAll('.pf-color-image-delete input[type="checkbox"]').forEach(cb => {
+    const wrapper = cb.closest('.pf-color-image-wrapper');
+    const preview = wrapper?.querySelector('.pf-color-image-preview');
+    const input = wrapper?.querySelector('.pf-color-image-input');
+    const btn = cb.closest('.pf-color-image-delete');
+
+    function updateState() {
+      if (preview) preview.classList.toggle('pf-color-image-preview--deleted', cb.checked);
+      if (input) input.style.display = cb.checked ? '' : 'none';
+      if (btn) btn.classList.toggle('pf-color-image-delete--active', cb.checked);
+    }
+
+    cb.addEventListener('change', updateState);
+    if (btn) {
+      btn.addEventListener('click', () => {
+        cb.checked = !cb.checked;
+        cb.dispatchEvent(new Event('change'));
+      });
+    }
+  });
+
+  /* ── Variants ─────────────────────────────────────────────────────── */
+  const variantsContainer = document.getElementById('variants-container');
+  const addVariantBtn     = document.getElementById('add-variant-btn');
+  const variantSummary    = document.getElementById('variant-summary');
+
+  function variantRowHTML(v) {
+    return `
+      <input type="hidden" name="variant_id" value="${v.id || ''}">
+
+      <!-- Color (always required) -->
+      <div class="pf-variant-cell" data-label="Color">
+        <input type="text" name="variant_color" class="form-control form-control-sm"
+               value="${v.color || ''}" placeholder="e.g. Black" required>
+      </div>
+
+      <!-- Color Image (always shown) -->
+      <div class="pf-variant-cell pf-variant-cell--color-image" data-label="Color Image">
+        <input type="file" name="variant_color_image" class="form-control form-control-sm pf-color-image-input"
+               accept="image/png,image/jpeg,image/jpg,image/webp">
+      </div>
+
+      <!-- SKU (always shown) -->
+      <div class="pf-variant-cell" data-label="SKU">
+        <input type="text" name="variant_sku" class="form-control form-control-sm"
+               value="${v.sku || ''}" placeholder="AUTO">
+      </div>
+
+      <!-- Stock (always required) -->
+      <div class="pf-variant-cell" data-label="Stock">
+        <input type="number" name="variant_stock" class="form-control form-control-sm"
+               value="${v.stock !== undefined ? v.stock : 0}" min="0" required>
+      </div>
+
+      <!-- Active (always shown) -->
+      <div class="pf-variant-cell pf-variant-cell--center" data-label="Active">
+        <input type="checkbox" name="variant_active" class="form-check-input" ${v.is_active !== false ? 'checked' : ''}>
+      </div>
+
+      <div class="pf-variant-cell pf-variant-cell--center">
+        <button type="button" class="pf-variant-remove" title="Remove variant">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>`;
+  }
+
+  function addVariantRow(v) {
+    const row = document.createElement('div');
+    row.className = 'pf-variant-row pf-variant-row--new';
+    row.innerHTML = variantRowHTML(v || {});
+    variantsContainer.appendChild(row);
+    updateVariantSummary();
+  }
+
+  if (addVariantBtn) {
+    addVariantBtn.addEventListener('click', () => addVariantRow());
+  }
+
+  variantsContainer.addEventListener('click', function (e) {
+    const btn = e.target.closest('.pf-variant-remove');
+    if (btn) {
+      btn.closest('.pf-variant-row').remove();
+      updateVariantSummary();
+    }
+  });
+
+  function updateVariantSummary() {
+    const rows = variantsContainer.querySelectorAll('.pf-variant-row');
+    if (!variantSummary) return;
+    if (rows.length === 0) {
+      variantSummary.style.display = 'none';
+      return;
+    }
+    let total = 0;
+    rows.forEach(r => {
+      const s = r.querySelector('[name="variant_stock"]');
+      total += parseInt(s?.value || 0, 10);
+    });
+    variantSummary.style.display = 'flex';
+    variantSummary.innerHTML = `
+      <i class="bi bi-layers me-2"></i>
+      <strong>${rows.length}</strong>&nbsp;variant${rows.length !== 1 ? 's' : ''} —
+      total stock:&nbsp;<strong>${total}</strong>`;
+
+    // Update tab badge
+    const vTab = document.querySelector('.pf-tab[data-tab="variants"] .pf-tab-badge');
+    if (vTab) { vTab.textContent = rows.length; }
+    else if (rows.length > 0) {
+      const t = document.querySelector('.pf-tab[data-tab="variants"]');
+      const b = document.createElement('span');
+      b.className = 'pf-tab-badge';
+      b.textContent = rows.length;
+      t.appendChild(b);
+    }
+  }
+
+  updateVariantSummary();
+
+  /* ── Live slug preview (mirrors Python _slugify logic) ───────────── */
+  function clientSlugify(text) {
+    return text
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip diacritics
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/[\s_]+/g, '-')
+      .replace(/-{2,}/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  const nameInput    = document.getElementById('field-name');
+  const slugDisplay  = document.getElementById('slug-display');
+  const slugReadonly = document.getElementById('slug-readonly');
+  const canonicalInput = document.getElementById('canonical-url');
+  const savedSlug    = slugReadonly ? slugReadonly.value : '';
+
+  if (nameInput && slugDisplay) {
+    nameInput.addEventListener('input', function () {
+      const preview = clientSlugify(this.value);
+      if (!preview) {
+        slugDisplay.innerHTML = '<em style="color:var(--color-gray-400)">generated on save</em>';
+        if (slugReadonly) slugReadonly.value = '';
+        if (canonicalInput) canonicalInput.value = '';
+        return;
+      }
+      const isSaved  = (preview === savedSlug || savedSlug === '');
+      const label    = isSaved ? preview : preview + ' <span style="color:var(--color-warning,#f59e0b);font-size:0.75rem;font-style:italic;">(preview — saved on submit)</span>';
+      slugDisplay.innerHTML = label;
+      if (slugReadonly) slugReadonly.value = preview;
+      if (canonicalInput && !canonicalInput.dataset.baseUrl) {
+        // Derive host from existing canonical value or window.location
+        const existing = canonicalInput.value;
+        const match = existing.match(/^(https?:\/\/[^/]+)/);
+        canonicalInput.dataset.baseUrl = match ? match[1] : window.location.origin;
+      }
+      if (canonicalInput && canonicalInput.dataset.baseUrl) {
+        canonicalInput.value = canonicalInput.dataset.baseUrl + '/products/' + preview;
+      }
+    });
+  }
+
+  /* ── Copy canonical URL ───────────────────────────────────────────── */
+  const copyBtn = document.getElementById('copy-url-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function () {
+      const inp = document.getElementById('canonical-url');
+      navigator.clipboard.writeText(inp.value).then(() => {
+        copyBtn.innerHTML = '<i class="bi bi-clipboard-check"></i>';
+        setTimeout(() => { copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 2000);
+      });
+    });
+  }
+
+  /* ── Form validation — surface correct tab on error ─────────────── */
+  document.getElementById('product-form').addEventListener('submit', function (e) {
+    const invalid = this.querySelector(':invalid');
+    if (!invalid) return;
+    e.preventDefault();
+    // Find which tab the invalid field belongs to
+    const panel = invalid.closest('.pf-panel');
+    if (panel) {
+      activateTab(panel.id.replace('tab-', ''));
+    }
+    invalid.focus();
+  });
+
+  /* ── Save bar dirty indicator ─────────────────────────────────────── */
+  const saveBarStatus = document.getElementById('save-bar-status');
+  let isDirty = false;
+  document.getElementById('product-form').addEventListener('input', function () {
+    if (!isDirty) {
+      isDirty = true;
+      if (saveBarStatus) {
+        saveBarStatus.innerHTML = '<i class="bi bi-circle-fill text-warning me-1" style="font-size:0.5rem;vertical-align:middle;"></i> Unsaved changes';
+      }
+    }
+  });
+}());
+</script>
+{% endblock %}

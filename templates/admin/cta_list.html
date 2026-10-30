@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}Manage CTA - Admin{% endblock %}
+
+{% block content %}
+<!-- ADMIN HEADER -->
+<section class="admin-header">
+    <div class="admin-header-content">
+        <div>
+            <span class="admin-label">Admin Panel</span>
+            <h1 class="admin-title">CTA Section</h1>
+        </div>
+        <a href="{{ url_for('admin.cta_create') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add CTA</a>
+    </div>
+</section>
+
+<!-- CTA LIST -->
+<section class="admin-section">
+    <div class="admin-container">
+        {% if cta_settings %}
+        <div class="admin-table-wrapper">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Description</th>
+                        <th>Button</th>
+                        <th>Background</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cta in cta_settings %}
+                    <tr>
+                        <td>{{ cta.title }}</td>
+                        <td>{{ cta.description[:50] if cta.description else '-' }}{% if cta.description and cta.description|length > 50 %}...{% endif %}</td>
+                        <td>{{ cta.button_text }} → {{ cta.button_link }}</td>
+                        <td>
+                            {% if cta.background_image %}
+                            <img src="{{ url_for('static', filename=cta.background_image) }}" alt="Background" class="admin-thumb admin-thumb--lg">
+                            {% else %}
+                            <span class="text-muted">Default</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cta.is_active %}
+                            <span class="admin-badge admin-badge--success">Active</span>
+                            {% else %}
+                            <span class="admin-badge admin-badge--secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="admin-actions">
+                                <a href="{{ url_for('admin.cta_edit', cta_id=cta.id) }}" class="btn btn-outline btn-sm">Edit</a>
+                                <form method="post" action="{{ url_for('admin.cta_delete', cta_id=cta.id) }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-sm btn-danger" onclick="return confirm('Delete this CTA?')">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-megaphone empty-icon"></i>
+            <h2 class="empty-title">No CTA configured</h2>
+            <p class="empty-desc">Create a call-to-action section for the homepage</p>
+            <a href="{{ url_for('admin.cta_create') }}" class="btn btn-primary">Create CTA</a>
+        </div>
+        {% endif %}
+        <div class="admin-back">
+            <a href="{{ url_for('admin.dashboard') }}" class="link-arrow"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

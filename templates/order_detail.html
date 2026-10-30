@@ -1,0 +1,370 @@
+{% extends 'base.html' %}
+{% block title %}Order #{{ order.id }} - {{ config.STORE_NAME }}{% endblock %}
+
+{% block content %}
+<!-- PAGE HEADER -->
+<section class="page-header">
+    <div class="container-narrow">
+        <span class="section-label">Order Details</span>
+        <h1 class="page-title">Order #{{ order.id }}</h1>
+        <p class="order-status-text">Status: <strong>{{ order.normalized_status|replace('_', ' ')|title }}</strong></p>
+        <a href="{{ url_for('orders.order_invoice', order_id=order.id) }}"
+           class="btn btn-sm btn-outline-dark mt-3"
+           style="font-size:0.8125rem;letter-spacing:0.05em;">
+            <i class="bi bi-download me-1"></i> Download Invoice PDF
+        </a>
+    </div>
+</section>
+
+<!-- ORDER CONTENT -->
+<section class="section">
+    <div class="container-narrow">
+        <div class="checkout-grid">
+            <!-- LEFT: Payment Section -->
+            <div class="checkout-form-section">
+                <h2 class="checkout-section-title">Payment</h2>
+                
+                {% set total_payment = order.total_price %}
+                
+                {% if order.status == 'cancelled' %}
+                <div class="payment-error">
+                    <i class="bi bi-x-circle-fill"></i>
+                    <h3>Order Cancelled</h3>
+                    {% if order.cancellation_reason == 'expired_payment' %}
+                    <p>This order was automatically cancelled because the payment deadline has passed.</p>
+                    {% else %}
+                    <p>This order has been cancelled.</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {% if order.status != 'cancelled' %}
+                {% if order.payment.status == 'unpaid' %}
+                <div class="payment-method-section">
+                    <p class="text-body">Select your preferred payment method to complete your order.</p>
+                    <form method="post" action="{{ url_for('orders.select_payment', order_id=order.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-group">
+                            <label class="form-label">Payment Method</label>
+                            <select class="form-control" name="payment_method" required>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="qris">QRIS</option>
+                                <option value="ewallet">E-Wallet</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-large w-100">Confirm Payment Method</button>
+                    </form>
+                </div>
+                {% elif order.payment.status == 'pending_payment' %}
+                <div class="payment-pending">
+                    <div class="payment-countdown">
+                        <span class="countdown-label">Complete payment by</span>
+                        {% if order.payment_deadline %}
+                        <p id="payment-deadline" data-deadline="{{ order.payment_deadline.strftime('%Y-%m-%dT%H:%M:%SZ') }}" class="countdown-value"></p>
+                        <p class="countdown-note">Payment expires 24 hours after method selection</p>
+                        {% endif %}
+                    </div>
+                    <div class="payment-total-box">
+                        <span class="payment-total-label">Total Payment</span>
+                        <span class="payment-total-value">Rp {{ '{:,}'.format(total_payment) }}</span>
+                    </div>
+                    <div class="payment-instructions">
+                        <h3>Payment Instructions</h3>
+                        <p>Click the button below to proceed to the secure payment page powered by Xendit.</p>
+                    </div>
+                    <button id="pay-now-btn" class="btn btn-primary btn-large w-100">Pay Now</button>
+                </div>
+                {% elif order.payment.status == 'paid' %}
+                <div class="payment-success">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <h3>Payment Received</h3>
+                    <p>Thank you for your purchase! Your order is being processed.</p>
+                </div>
+                {% if order.status == 'shipped' %}
+                <div class="shipping-info">
+                    <h4>Shipping Status</h4>
+                    <p>{{ order.status|title }}</p>
+                </div>
+                {% endif %}
+                {% elif order.payment.status in ['rejected', 'expired'] %}
+                <div class="payment-error">
+                    <i class="bi bi-x-circle-fill"></i>
+                    <h3>Payment {{ order.payment.status|title }}</h3>
+                    <p>Please select a payment method again to continue.</p>
+                </div>
+                <form method="post" action="{{ url_for('orders.select_payment', order_id=order.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <label class="form-label">Payment Method</label>
+                        <select class="form-control" name="payment_method" required>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="qris">QRIS</option>
+                            <option value="ewallet">E-Wallet</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Try Again</button>
+                </form>
+                {% else %}
+                <div class="payment-pending-note">
+                    <p>Please select a payment method to complete your order.</p>
+                </div>
+                {% endif %}
+
+                {% if order.status == 'pending' %}
+                <div class="payment-cancel-section" style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--color-gray-100);">
+                    <form method="post" action="{{ url_for('orders.cancel_order', order_id=order.id) }}"
+                          onsubmit="return confirm('Yakin ingin membatalkan pesanan ini?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="bi bi-x-circle me-1"></i> Batalkan Pesanan
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+            
+            <!-- RIGHT: Order Summary -->
+            <div class="checkout-summary-section">
+                <h2 class="checkout-section-title">Order Summary</h2>
+                <div class="checkout-items">
+                    {% set ns = namespace(subtotal=0) %}
+                    {% for item in order.items %}
+                    {% set line_total = item.price * item.quantity %}
+                    {% set ns.subtotal = ns.subtotal + line_total %}
+                    <div class="checkout-item-row">
+                        <div class="checkout-item-info">
+                            <span class="checkout-item-name">{{ item.product.name }}</span>
+                            {% if item.variant %}
+                            <span class="checkout-item-variant">{{ item.variant.display_name }}</span>
+                            {% endif %}
+                            <span class="checkout-item-qty">× {{ item.quantity }}</span>
+                        </div>
+                        <div class="checkout-item-price">
+                            {% if item.discount_amount %}
+                            <span class="checkout-item-original">Rp {{ '{:,}'.format(item.original_price * item.quantity) }}</span>
+                            {% endif %}
+                            <span>Rp {{ '{:,}'.format(line_total) }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="checkout-total-row" style="margin-top:.75rem;border-top:1px solid var(--color-gray-100);padding-top:.75rem;">
+                        <span>Subtotal</span>
+                        <span>Rp {{ '{:,}'.format(ns.subtotal) }}</span>
+                    </div>
+                    {% if order.shipping_discount_amount > 0 %}
+                    <div class="checkout-total-row">
+                        <span>Ongkir Asli</span>
+                        <span>Rp {{ '{:,}'.format(order.original_shipping_cost) }}</span>
+                    </div>
+                    <div class="checkout-total-row" style="color:#16a34a;">
+                        <span>Diskon Ongkir</span>
+                        <span>- Rp {{ '{:,}'.format(order.shipping_discount_amount) }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="checkout-total-row">
+                        <span>Ongkir</span>
+                        <span>Rp {{ '{:,}'.format(order.shipping_cost) }}</span>
+                    </div>
+                </div>
+                <div class="checkout-totals">
+                    <div class="checkout-total-row checkout-total-final">
+                        <span>Total</span>
+                        <span>Rp {{ '{:,}'.format(total_payment) }}</span>
+                    </div>
+                </div>
+                <div class="shipping-address">
+                    <h4>Shipping Address</h4>
+                    <p>{{ order.shipping_address }}</p>
+                </div>
+                <div class="shipping-details">
+                    <h4>Shipping Details</h4>
+                    <p><strong>Courier:</strong> {{ order.courier }} - {{ order.service }}</p>
+                    {% if order.resi_number %}
+                    <p><strong>Tracking Number:</strong> {{ order.resi_number }}</p>
+                    {% endif %}
+                </div>
+                <div class="back-link">
+                    <a href="{{ url_for('orders.order_history') }}" class="link-arrow"><i class="bi bi-arrow-left"></i> Back to Orders</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div id="order-meta"
+     data-order-id="{{ order.id }}"
+     data-payment-status="{{ order.payment.status }}"
+     style="display:none"
+     aria-hidden="true"></div>
+
+<script>
+(function() {
+    const deadlineEl = document.getElementById('payment-deadline');
+    if (!deadlineEl) return;
+
+    const deadline = new Date(deadlineEl.dataset.deadline).getTime();
+    const countdown = () => {
+        const now = new Date().getTime();
+        const distance = deadline - now;
+
+        if (distance <= 0) {
+            deadlineEl.textContent = 'EXPIRED';
+            return;
+        }
+
+        const hours = Math.floor(distance / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        deadlineEl.textContent = `${hours.toString().padStart(2, '0')} : ${minutes.toString().padStart(2, '0')} : ${seconds.toString().padStart(2, '0')}`;
+    };
+
+    countdown();
+    setInterval(countdown, 1000);
+})();
+
+(function() {
+    const payNowBtn = document.getElementById('pay-now-btn');
+    if (!payNowBtn) return;
+
+    payNowBtn.addEventListener('click', async function () {
+        payNowBtn.disabled = true;
+        payNowBtn.textContent = 'Membuat invoice...';
+
+        try {
+            const response = await fetch(`/api/create-payment/{{ order.id }}`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Gagal membuat invoice Xendit.');
+            }
+
+            window.location.href = result.invoice_url;
+        } catch (error) {
+            payNowBtn.disabled = false;
+            payNowBtn.textContent = 'Bayar Sekarang';
+            alert(error.message || 'Terjadi kesalahan saat membuat invoice Xendit.');
+        }
+    });
+})();
+
+(function() {
+    /* ── Payment status polling ──────────────────────────────────────────
+       Only active when payment is still pending_payment.
+       Polls /payment-status/<order_id> every 5 seconds.
+       On paid  → reload with ?paid=1 so the page renders the success state.
+       On expired → reload to show expired notice.
+       Stops automatically after 30 minutes or on terminal status.
+    ─────────────────────────────────────────────────────────────────── */
+    const orderMeta        = document.getElementById('order-meta');
+    const IS_PENDING_PAYMENT = orderMeta.dataset.paymentStatus === 'pending_payment';
+
+    if (IS_PENDING_PAYMENT) {
+    const POLL_INTERVAL_MS = 5000;
+    const MAX_POLLS        = 360; // 30 min
+    let   polls            = 0;
+    let   pollTimer        = null;
+
+    const banner = document.createElement('div');
+    banner.id    = 'payment-poll-banner';
+    banner.style.cssText = [
+        'position:fixed', 'bottom:1.5rem', 'right:1.5rem',
+        'background:#1a1a1a', 'color:#fff', 'border-radius:0.75rem',
+        'padding:0.75rem 1.25rem', 'font-size:0.875rem',
+        'display:flex', 'align-items:center', 'gap:0.625rem',
+        'box-shadow:0 4px 20px rgba(0,0,0,.3)', 'z-index:9999',
+        'transition:opacity .3s',
+    ].join(';');
+    banner.innerHTML = '<span class="poll-spinner" style="width:1rem;height:1rem;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin .7s linear infinite;"></span>'
+                     + '<span>Menunggu konfirmasi pembayaran&hellip;</span>';
+    document.body.appendChild(banner);
+
+    const style = document.createElement('style');
+    style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(style);
+
+    function stopPolling() {
+        clearInterval(pollTimer);
+    }
+
+    async function checkStatus() {
+        if (polls++ >= MAX_POLLS) { stopPolling(); return; }
+        try {
+            const res  = await fetch('/payment-status/' + orderMeta.dataset.orderId, {
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+
+            if (data.payment_status === 'paid') {
+                stopPolling();
+                banner.style.background = '#16a34a';
+                banner.innerHTML = '<i class="bi bi-check-circle-fill" style="font-size:1.1rem;"></i>'
+                                 + '<span>Pembayaran berhasil! Halaman akan diperbarui&hellip;</span>';
+                setTimeout(() => { window.location.href = window.location.pathname + '?paid=1'; }, 1500);
+            } else if (['expired', 'rejected'].includes(data.payment_status)) {
+                stopPolling();
+                window.location.reload();
+            }
+        } catch (_) { /* network hiccup — try again next tick */ }
+    }
+
+    pollTimer = setInterval(checkStatus, POLL_INTERVAL_MS);
+    checkStatus(); // fire immediately on load (handles Xendit callback redirect)
+
+    } // end if (IS_PENDING_PAYMENT)
+
+    /* ── Show success banner if redirected back from Xendit ─────────────
+       Xendit redirect lands on this page; ?paid=1 signals a fresh reload
+       after payment was confirmed. Show a top-of-page flash.
+    ─────────────────────────────────────────────────────────────────── */
+    if (new URLSearchParams(window.location.search).get('paid') === '1') {
+        const flash = document.createElement('div');
+        flash.style.cssText = [
+            'position:fixed', 'top:0', 'left:0', 'right:0',
+            'background:#16a34a', 'color:#fff',
+            'text-align:center', 'padding:0.9rem 1rem',
+            'font-weight:600', 'font-size:0.9375rem',
+            'z-index:10000', 'box-shadow:0 2px 8px rgba(0,0,0,.2)',
+        ].join(';');
+        flash.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Pembayaran berhasil dikonfirmasi! Pesanan sedang diproses.';
+        document.body.prepend(flash);
+        // Clean the ?paid=1 param from browser history without reload
+        history.replaceState(null, '', window.location.pathname);
+        setTimeout(() => { flash.style.transition = 'opacity .5s'; flash.style.opacity = '0'; setTimeout(() => flash.remove(), 500); }, 5000);
+    }
+})();
+</script>
+
+{% if config.TIKTOK_PIXEL_ID and order.payment and order.payment.status == 'paid' %}
+<script>
+(function () {
+  _ttqEventOnce('purchase_{{ order.id }}', function () {
+    ttq.track('Purchase', {
+      value: {{ order.total_price }},
+      currency: 'IDR',
+      contents: [
+        {% for item in order.items %}
+        {
+          content_id: '{{ item.product.id }}',
+          content_name: {{ item.product.name | tojson }},
+          content_type: 'product',
+          price: {{ item.price }},
+          quantity: {{ item.quantity }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+    });
+  }, 'local');
+})();
+</script>
+{% endif %}
+
+{% endblock %}

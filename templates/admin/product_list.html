@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}Manage Products - Admin{% endblock %}
+
+{% block content %}
+<!-- ADMIN HEADER -->
+<section class="admin-header">
+    <div class="admin-header-content">
+        <div>
+            <span class="admin-label">Admin Panel</span>
+            <h1 class="admin-title">Products</h1>
+        </div>
+        <a class="btn btn-primary" href="{{ url_for('admin.product_create') }}"><i class="bi bi-plus-lg"></i> Add Product</a>
+    </div>
+</section>
+
+<!-- PRODUCTS TABLE -->
+<section class="admin-section">
+    <div class="admin-container">
+        <div class="admin-table-wrapper">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Image</th>
+                        <th>Name</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>{{ product.id }}</td>
+                        <td>
+                            {% if product.image %}
+                            <img src="{{ url_for('static', filename=product.image) }}" alt="{{ product.name }}" class="admin-thumb">
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ product.name }}</td>
+                        <td>
+                          {%- set adr = calculate_product_discount(product) -%}
+                          {%- if adr.is_applied -%}
+                            <span style="text-decoration:line-through;color:#aaa;font-size:0.75rem;margin-right:4px;">Rp {{ '{:,}'.format(adr.original_price) }}</span>
+                            Rp {{ '{:,}'.format(adr.final_price) }}
+                          {%- else -%}
+                            Rp {{ '{:,}'.format(product.price) }}
+                          {%- endif -%}
+                        </td>
+                        <td>{{ product.total_variant_stock }}</td>
+                        <td>
+                            {% if product.is_active %}
+                            <span class="admin-badge admin-badge--success">Active</span>
+                            {% else %}
+                            <span class="admin-badge admin-badge--secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="admin-actions">
+                                <a href="{{ url_for('admin.product_edit', product_id=product.id) }}" class="btn btn-outline btn-sm">Edit</a>
+                                <form method="post" action="{{ url_for('admin.product_delete', product_id=product.id) }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    {% if product.order_items %}
+                                    <button class="btn btn-sm btn-warning" type="submit" title="Product will be deactivated due to existing orders">Deactivate</button>
+                                    {% else %}
+                                    <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+                                    {% endif %}
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="admin-back">
+            <a href="{{ url_for('admin.dashboard') }}" class="link-arrow"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

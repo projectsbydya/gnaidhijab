@@ -1,0 +1,1199 @@
+{% extends 'base.html' %}
+{% block title %}{{ meta.title if meta else product.name ~ ' — ' ~ config.STORE_NAME }}{% endblock %}
+
+{# ── SEO meta overrides ───────────────────────────────────────────────── #}
+{% block meta_description %}{{ meta.description if meta else product.name }}{% endblock %}
+
+{% block canonical %}
+<link rel="canonical" href="{{ meta.canonical if meta else request.url }}">
+{% endblock %}
+
+{% block og_type %}product{% endblock %}
+{% block og_title %}{{ meta.title if meta else product.name }}{% endblock %}
+{% block og_description %}{{ meta.description if meta else product.name }}{% endblock %}
+{% block og_image %}
+{% if meta and meta.og_image %}
+<meta property="og:image" content="{{ meta.og_image }}">
+<meta property="og:image:alt" content="{{ product.name }}">
+{% endif %}
+{% endblock %}
+
+{% block twitter_title %}{{ meta.title if meta else product.name }}{% endblock %}
+{% block twitter_description %}{{ meta.description if meta else product.name }}{% endblock %}
+{% block twitter_image %}
+{% if meta and meta.og_image %}
+<meta name="twitter:image" content="{{ meta.og_image }}">
+{% endif %}
+{% endblock %}
+
+{# ── JSON-LD structured data ─────────────────────────────────────────── #}
+{% block head_extra %}
+{# Build image array: all ProductImages + legacy fallback #}
+{% set dr = calculate_product_discount(product) %}
+{% set _images = [] %}
+{% for img in product.images %}
+  {% set _abs = request.host_url.rstrip('/') ~ url_for('static', filename=img.image_path) %}
+  {% if _abs not in _images %}{% set _ = _images.append(_abs) %}{% endif %}
+{% endfor %}
+{% if product.image and not product.images %}
+  {% set _ = _images.append(request.host_url.rstrip('/') ~ url_for('static', filename=product.image)) %}
+{% endif %}
+
+{# Canonical URL #}
+{% set _canonical = (meta.canonical if meta else request.url) %}
+
+{# Price valid until end of next year (recommended by Google) #}
+{% set _valid_until = (product.created_at.year + 2) ~ '-12-31' if product.created_at else '2099-12-31' %}
+
+{# Active variants with a defined SKU #}
+{% set _active_variants = product.variants | selectattr('is_active') | list %}
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": {{ product.name | tojson }},
+  "description": {{ (product.description or '') | tojson }},
+  "url": {{ _canonical | tojson }},
+  "image": {{ _images | tojson }},
+  "sku": {{ ((_active_variants[0].sku if _active_variants and _active_variants[0].sku else none) or (config.BRAND_NAME | upper | replace(' ', '-') ~ '-' ~ product.id)) | tojson }},
+  "brand": {
+    "@type": "Brand",
+    "name": {{ config.BRAND_NAME | tojson }}
+  },
+  "offers": {
+    "@type": "Offer",
+    "priceCurrency": "IDR",
+    "price": "{{ dr.final_price }}",
+    "priceValidUntil": {{ _valid_until | tojson }},
+    "itemCondition": "https://schema.org/NewCondition",
+    "availability": "https://schema.org/{{ meta.availability if meta else ('InStock' if product.effective_stock > 0 else 'OutOfStock') }}",
+    "url": {{ _canonical | tojson }},
+    "seller": {
+      "@type": "Organization",
+      "name": {{ config.STORE_NAME | tojson }}
+    }
+  }{% if _active_variants %},
+  "hasVariant": [
+    {% for v in _active_variants %}
+    {
+      "@type": "Product",
+      "name": {{ (product.name ~ ' — ' ~ v.display_name) | tojson }},
+      "sku": {{ (v.sku or (config.BRAND_NAME | upper | replace(' ', '-') ~ '-' ~ product.id ~ '-' ~ v.id)) | tojson }},
+      "offers": {
+        "@type": "Offer",
+        "priceCurrency": "IDR",
+        "price": "{{ v.effective_price }}",
+        "priceValidUntil": {{ _valid_until | tojson }},
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/{{ 'InStock' if v.stock > 0 else 'OutOfStock' }}",
+        "url": {{ _canonical | tojson }},
+        "seller": {
+          "@type": "Organization",
+          "name": {{ config.STORE_NAME | tojson }}
+        }
+      }{% if v.color or v.size %},
+      "additionalProperty": [
+        {% if v.color %}{"@type": "PropertyValue", "name": "Color", "value": {{ v.color | tojson }}}{% if v.size %},{% endif %}{% endif %}
+        {% if v.size %}{"@type": "PropertyValue", "name": "Size",  "value": {{ v.size  | tojson }}}{% endif %}
+      ]{% endif %}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]{% endif %}
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": {{ (request.host_url.rstrip('/') ~ url_for('shop.index')) | tojson }}
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Collection",
+      "item": {{ (request.host_url.rstrip('/') ~ url_for('shop.products')) | tojson }}
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": {{ product.name | tojson }},
+      "item": {{ _canonical | tojson }}
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+{# ── Data prep ──────────────────────────────────────────────────────────── #}
+{% set active_variants = product.variants | selectattr('is_active') | list %}
+{% set display_stock   = product.effective_stock %}
+{% set dr = calculate_product_discount(product) %}
+
+{# Build gallery: prefer ProductImage list, fall back to legacy image field #}
+{% set gallery_images = product.images if product.images else [] %}
+
+{# ── Breadcrumb ─────────────────────────────────────────────────────────── #}
+<nav class="pd-breadcrumb" aria-label="breadcrumb">
+  <div class="pd-breadcrumb-inner">
+    <a href="{{ url_for('shop.index') }}">Home</a>
+    <span class="pd-breadcrumb-sep">·</span>
+    <a href="{{ url_for('shop.products') }}">Collection</a>
+    <span class="pd-breadcrumb-sep">·</span>
+    <span>{{ product.name }}</span>
+  </div>
+</nav>
+
+{# ══════════════════════════════════════════════════════════════════════════
+   MAIN PRODUCT STAGE
+   ══════════════════════════════════════════════════════════════════════════ #}
+<section class="pd-stage">
+  <div class="pd-stage-inner">
+
+    {# ── LEFT: GALLERY ───────────────────────────────────────────────────── #}
+    <div class="pd-gallery" id="pd-gallery">
+
+      {# Main image frame — always on top #}
+      <div class="pd-main-frame" id="pd-main-frame">
+        {%- set hero_src = None -%}
+        {%- if gallery_images -%}{%- set hero_src = url_for('static', filename=gallery_images[0].image_path) -%}
+        {%- elif product.image -%}{%- set hero_src = url_for('static', filename=product.image) -%}{%- endif -%}
+        {% if hero_src %}
+          <img class="pd-main-img" id="pd-main-img"
+               src="{{ hero_src }}"
+               alt="{{ product.name }}"
+               fetchpriority="high"
+               decoding="async">
+        {% else %}
+          <div class="pd-img-placeholder"><i class="bi bi-image"></i></div>
+        {% endif %}
+
+        {# Zoom hint #}
+        <button class="pd-zoom-btn" id="pd-zoom-btn" type="button" aria-label="Zoom image">
+          <i class="bi bi-zoom-in"></i>
+        </button>
+
+        {# Image count badge (mobile) #}
+        {% set img_count = (gallery_images | length) or (1 if product.image else 0) %}
+        {% if img_count > 1 %}
+        <span class="pd-img-count" id="pd-img-count">1 / {{ img_count }}</span>
+        {% endif %}
+      </div>
+
+      {# Thumbnail strip — below main image #}
+      {% if gallery_images | length > 1 %}
+      <div class="pd-thumbs" id="pd-thumbs">
+        {% for img in gallery_images %}
+        <button class="pd-thumb {% if loop.first %}active{% endif %}"
+                type="button"
+                data-index="{{ loop.index0 }}"
+                data-src="{{ url_for('static', filename=img.image_path) }}"
+                aria-label="View image {{ loop.index }}">
+          <img src="{{ url_for('static', filename=img.image_path) }}"
+               alt="{{ product.name }} {{ loop.index }}"
+               loading="lazy">
+        </button>
+        {% endfor %}
+      </div>
+      {% elif product.image and not gallery_images %}
+      <div class="pd-thumbs" id="pd-thumbs">
+        <button class="pd-thumb active" type="button" data-index="0"
+                data-src="{{ url_for('static', filename=product.image) }}" aria-label="View image 1">
+          <img src="{{ url_for('static', filename=product.image) }}"
+               alt="{{ product.name }}"
+               loading="lazy" decoding="async">
+        </button>
+      </div>
+      {% endif %}
+
+    </div>
+
+    {# ── RIGHT: PRODUCT INFO ─────────────────────────────────────────────── #}
+    <div class="pd-info" id="pd-info">
+
+      <span class="pd-brand">{{ config.STORE_NAME }}</span>
+      <h1 class="pd-name">{{ product.name }}{% if dr.is_applied %}{%- set disc_pct = dr.discount_value if dr.discount_type == 'percentage' else ((dr.savings * 100) // dr.original_price) -%}<span class="pd-sale-badge">-{{ disc_pct }}%</span>{% endif %}</h1>
+
+      <div class="pd-price-row">
+        {% if dr.is_applied %}<span class="pd-price--original">Rp {{ '{:,}'.format(dr.original_price) }}</span>{% endif %}
+        <span class="pd-price" id="pd-price-display" data-base-price="{{ dr.final_price }}">Rp {{ '{:,}'.format(dr.final_price) }}</span>
+        {% if active_variants %}
+        <span class="pd-price-note" id="pd-variant-price-note"></span>
+        {% endif %}
+      </div>
+      {% if dr.is_applied %}<p class="pd-savings">Hemat Rp {{ '{:,}'.format(dr.savings) }}</p>{% endif %}
+
+      {# Stock pill & Sold count #}
+      <div class="pd-meta-row">
+        <div class="pd-stock-pill {% if display_stock > 0 %}pd-stock-pill--in{% else %}pd-stock-pill--out{% endif %}"
+             id="pd-stock-pill">
+          {% if display_stock > 0 %}
+            <span class="pd-stock-dot"></span> In Stock
+          {% else %}
+            <span class="pd-stock-dot"></span> Out of Stock
+          {% endif %}
+        </div>
+        {% if product.sold_count and product.sold_count > 0 %}
+        <span class="pd-sold-count">{{ '{:,}'.format(product.sold_count) }} sold</span>
+        {% endif %}
+      </div>
+
+      <div class="pd-divider"></div>
+
+      {# ── CTA BUTTONS ─────────────────────────────────────────────────── #}
+      {% if session.get('user_role') == 'admin' %}
+        <div class="pd-admin-notice">
+          <span class="badge bg-secondary"><i class="bi bi-shield-lock me-1"></i>Admin View</span>
+          <p class="text-muted small mt-2 mb-0">Checkout disabled for admin users</p>
+        </div>
+      {% elif session.get('user_id') %}
+        <div class="pd-cta-row">
+          {% if display_stock > 0 %}
+            <button type="button" class="pd-btn-atc" id="pd-open-modal-btn"
+                    data-bs-toggle="modal" data-bs-target="#variantModal">
+              <i class="bi bi-bag-plus"></i>
+              <span>Pilih Varian</span>
+            </button>
+          {% else %}
+            <button type="button" class="pd-btn-atc" disabled>
+              <i class="bi bi-bag-plus"></i>
+              <span>Out of Stock</span>
+            </button>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="pd-login-prompt">
+          <i class="bi bi-lock"></i>
+          <span>Please <a href="{{ url_for('auth.login') }}">sign in</a> or
+          <a href="{{ url_for('auth.register') }}">create an account</a> to purchase</span>
+        </div>
+      {% endif %}
+
+      {# ── SHOPEE CTA ──────────────────────────────────────────────────── #}
+      {% set shopee_link = product.shopee_link %}
+      {% if shopee_link %}
+      <div class="pd-cta-row pd-cta-row--shopee">
+        <a href="{{ shopee_link }}"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="pd-btn-atc pd-btn-atc--shopee">
+          <i class="bi bi-shop"></i>
+          <span>Belanja di Shopee</span>
+        </a>
+      </div>
+      {% endif %}
+
+      <div class="pd-divider"></div>
+
+      {# ── TRUST BADGES ────────────────────────────────────────────────── #}
+      <ul class="pd-trust">
+        <li><i class="bi bi-patch-check"></i> Premium authentic quality</li>
+        <li><i class="bi bi-box-seam"></i> Free gift wrapping available</li>
+        <li><i class="bi bi-truck"></i> Fast shipping Mon – Sat, 08:00 – 17:00</li>
+        <li><i class="bi bi-whatsapp"></i> Questions? <a href="https://wa.me/{{ config.get('WHATSAPP_NUMBER','') }}" target="_blank" rel="noopener">Chat on WhatsApp</a></li>
+      </ul>
+
+    </div>{# /pd-info #}
+  </div>{# /pd-stage-inner #}
+</section>
+
+{# ══════════════════════════════════════════════════════════════════════════
+   ACCORDION — Description / Materials / Shipping / Size Guide
+   ══════════════════════════════════════════════════════════════════════════ #}
+<section class="pd-accordion-section">
+  <div class="pd-accordion-inner">
+
+    {# Description #}
+    <div class="pd-accordion-item" id="acc-desc">
+      <button class="pd-accordion-trigger active" type="button"
+              aria-expanded="true" aria-controls="acc-desc-body">
+        <span>Description</span>
+        <i class="bi bi-chevron-down pd-acc-icon"></i>
+      </button>
+      <div class="pd-accordion-body open" id="acc-desc-body">
+        <div class="pd-accordion-content">
+          {% if product.description %}
+            <p style="white-space: pre-wrap;">{{ product.description }}</p>
+          {% else %}
+            <p style="color:var(--color-gray-400);">No description available.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# Materials & Care #}
+    <div class="pd-accordion-item" id="acc-mat">
+      <button class="pd-accordion-trigger" type="button"
+              aria-expanded="false" aria-controls="acc-mat-body">
+        <span>Materials &amp; Care</span>
+        <i class="bi bi-chevron-down pd-acc-icon"></i>
+      </button>
+      <div class="pd-accordion-body" id="acc-mat-body">
+        <div class="pd-accordion-content">
+          {{ product.materials_care | safe if product.materials_care else '—' }}
+        </div>
+      </div>
+    </div>
+
+    {# Shipping #}
+    <div class="pd-accordion-item" id="acc-ship">
+      <button class="pd-accordion-trigger" type="button"
+              aria-expanded="false" aria-controls="acc-ship-body">
+        <span>Shipping &amp; Returns</span>
+        <i class="bi bi-chevron-down pd-acc-icon"></i>
+      </button>
+      <div class="pd-accordion-body" id="acc-ship-body">
+        <div class="pd-accordion-content">
+          {{ product.shipping_returns | safe if product.shipping_returns else '—' }}
+        </div>
+      </div>
+    </div>
+
+    {# Size Guide #}
+    <div class="pd-accordion-item" id="acc-size">
+      <button class="pd-accordion-trigger" type="button"
+              aria-expanded="false" aria-controls="acc-size-body">
+        <span>Size Guide</span>
+        <i class="bi bi-chevron-down pd-acc-icon"></i>
+      </button>
+      <div class="pd-accordion-body" id="acc-size-body">
+        <div class="pd-accordion-content">
+          {{ product.size_guide | safe if product.size_guide else '—' }}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+{# ══════════════════════════════════════════════════════════════════════════
+   RELATED PRODUCTS
+   ══════════════════════════════════════════════════════════════════════════ #}
+{% if related_products %}
+<section class="pd-related">
+  <div class="pd-related-inner">
+    <div class="pd-related-header">
+      <span class="section-label">You May Also Like</span>
+      <h2 class="section-title" style="margin-top:.5rem;">Complete the Look</h2>
+    </div>
+    <div class="products-grid">
+      {% for p in related_products %}
+      {%- set rdr = calculate_product_discount(p) -%}
+      <article class="product-card">
+        <a href="{% if p.slug %}{{ url_for('shop.product_detail_slug', slug=p.slug) }}{% else %}{{ url_for('shop.product_detail', product_id=p.id) }}{% endif %}">
+          <div class="product-image">
+            {% set ri = p.primary_image %}
+            {% if ri %}
+            <img src="{{ url_for('static', filename=ri) }}" alt="{{ p.name }}" loading="lazy">
+            {% else %}
+            <div class="d-flex align-items-center justify-content-center h-100 bg-light">
+              <i class="bi bi-image fs-1 text-secondary"></i>
+            </div>
+            {% endif %}
+            {% if rdr.is_applied %}
+            {%- set disc_pct = rdr.discount_value if rdr.discount_type == 'percentage' else ((rdr.savings * 100) // rdr.original_price) -%}
+            <span class="product-badge product-badge--sale">-{{ disc_pct }}%</span>
+            {% endif %}
+            <div class="product-hover"><span class="product-hover-text">View</span></div>
+          </div>
+          <div class="product-info">
+            <h3 class="product-name">{{ p.name }}</h3>
+            <p class="product-price">
+              {%- if rdr.is_applied %}<span class="product-price--original">Rp {{ '{:,}'.format(rdr.original_price) }}</span>{% endif -%}
+              Rp {{ '{:,}'.format(rdr.final_price) }}
+            </p>
+          </div>
+        </a>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════════════════════
+   VARIANT SELECTION MODAL
+   ══════════════════════════════════════════════════════════════════════════ #}
+{% if session.get('user_id') and session.get('user_role') != 'admin' and display_stock > 0 %}
+
+  {# Variant data island — always emitted; consumed only by modal JS #}
+  {% set vm_colors = [] %}
+  {% set vm_sizes  = [] %}
+  {% set vm_color_images = {} %}
+  {% for v in active_variants %}
+    {% if v.color and v.color not in vm_colors %}
+      {% set _ = vm_colors.append(v.color) %}
+      {% if v.color_image_path %}{% set _ = vm_color_images.update({v.color: v.color_image_path}) %}{% endif %}
+    {% endif %}
+    {% set eff_size = v.effective_size %}
+    {% if eff_size and eff_size not in vm_sizes %}{% set _ = vm_sizes.append(eff_size) %}{% endif %}
+  {% endfor %}
+  <script id="vm-variants-data" type="application/json">
+  [
+    {% for v in active_variants %}
+    {
+      "id":     {{ v.id }},
+      "color":  {{ v.color | tojson }},
+      "size":   {{ v.effective_size | tojson }},
+      "stock":  {{ v.stock }},
+      "price":  {{ v.effective_price }},
+      "weight": {{ v.effective_weight }},
+      "sku":    {{ v.sku   | tojson }},
+      "color_image": {{ url_for('static', filename=v.color_image_path) | tojson if v.color_image_path else 'null' }},
+      "images": [{% for vi in v.images %}{{ url_for('static', filename=vi.image_path) | tojson }}{% if not loop.last %},{% endif %}{% endfor %}]
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+  </script>
+
+  <div class="modal fade" id="variantModal" tabindex="-1"
+       aria-labelledby="variantModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered vm-dialog">
+      <div class="modal-content vm-content">
+
+        {# Header #}
+        <div class="vm-header">
+          <div class="vm-header-info">
+            <div class="vm-product-name">{{ product.name }}</div>
+            {% if dr.is_applied %}<div class="vm-price--original">Rp {{ '{:,}'.format(dr.original_price) }}</div>{% endif %}
+            <div class="vm-product-price" id="vm-price-display"
+                 data-base-price="{{ dr.final_price }}">Rp {{ '{:,}'.format(dr.final_price) }}</div>
+          </div>
+          <button type="button" class="vm-close-btn" data-bs-dismiss="modal" aria-label="Tutup">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+
+        {# Body #}
+        <div class="vm-body">
+
+          {% if active_variants %}
+
+            {# ── Color swatches ─────────────────────────────────────── #}
+            {% if vm_colors %}
+            <div class="vm-option-group" id="vm-color-group">
+              <div class="vm-option-label">
+                Warna: <span class="vm-option-selected" id="vm-color-selected">—</span>
+              </div>
+              <div class="pd-swatches pd-swatches--images">
+                {% for c in vm_colors %}
+                <button type="button" class="pd-swatch vm-swatch"
+                        data-color="{{ c }}" aria-label="{{ c }}">
+                  {% if c in vm_color_images %}
+                  <span class="pd-swatch-image-wrapper">
+                    <img src="{{ url_for('static', filename=vm_color_images[c]) }}" alt="{{ c }}" class="pd-swatch-image">
+                  </span>
+                  {% else %}
+                  <span class="pd-swatch-inner" data-bg="{{ c | lower }}"></span>
+                  {% endif %}
+                  <span class="pd-swatch-label">{{ c }}</span>
+                </button>
+                {% endfor %}
+              </div>
+              {# Color preview display #}
+              {% if vm_color_images %}
+              <div class="vm-color-preview" id="vm-color-preview">
+                <img id="vm-color-preview-img" src="" alt="Selected color">
+                <span id="vm-color-preview-name"></span>
+              </div>
+              {% endif %}
+            </div>
+            {% endif %}
+
+            {# ── Size pills ──────────────────────────────────────────── #}
+            {% if vm_sizes %}
+            <div class="vm-option-group" id="vm-size-group">
+              <div class="vm-option-label">
+                Ukuran: <span class="vm-option-selected" id="vm-size-selected">—</span>
+              </div>
+              <div class="pd-size-pills">
+                {% for s in vm_sizes %}
+                <button type="button" class="pd-size-pill vm-size-pill"
+                        data-size="{{ s }}" aria-label="Ukuran {{ s }}">
+                  {{ s }}
+                </button>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+
+            {# ── Fallback dropdown when no color/size attributes ──── #}
+            {% if not vm_colors and not vm_sizes %}
+            <div class="vm-option-group">
+              <div class="vm-option-label">Varian</div>
+              <div class="pd-dropdown-wrap">
+                <select id="vm-variant-select" class="pd-select">
+                  <option value="0">— Pilih varian —</option>
+                  {% for v in active_variants %}
+                  <option value="{{ v.id }}"
+                          data-stock="{{ v.stock }}"
+                          data-price="{{ v.effective_price }}">
+                    {{ v.display_name }}{% if v.stock <= 0 %} · Habis{% endif %}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            {% endif %}
+
+          {% endif %}{# /active_variants #}
+
+          {# ── No-variant product: no selector needed ────────────── #}
+
+          {# ── Quantity stepper ────────────────────────────────────── #}
+          <div class="vm-option-group vm-qty-group">
+            <div class="vm-option-label">Jumlah</div>
+            <div class="pd-qty-control" id="vm-qty-wrapper" data-max="{{ display_stock }}">
+              <button type="button" class="pd-qty-btn" data-action="decrease" aria-label="Kurang">−</button>
+              <input type="number" id="vm-qty-input" class="pd-qty-input"
+                     value="1" min="1" max="{{ display_stock }}">
+              <button type="button" class="pd-qty-btn" data-action="increase" aria-label="Tambah">+</button>
+            </div>
+            <div class="vm-stock-note" id="vm-stock-note"></div>
+          </div>
+
+        </div>{# /vm-body #}
+
+        {# Footer — Cart form #}
+        <div class="vm-footer">
+          <form action="{{ url_for('cart.add_to_cart', product_id=product.id) }}"
+                method="post" id="vm-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="variant_id" id="vm-variant-id" value="0">
+            <input type="hidden" name="quantity"   id="vm-quantity"   value="1">
+            <button type="submit" class="pd-btn-atc vm-submit-btn" id="vm-submit-btn" disabled>
+              <i class="bi bi-bag-plus"></i>
+              <span id="vm-submit-label">Tambahkan ke Keranjang</span>
+            </button>
+          </form>
+        </div>
+
+      </div>{# /vm-content #}
+    </div>{# /vm-dialog #}
+  </div>{# /variantModal #}
+
+{% endif %}{# /user + stock guard #}
+
+{# ── Zoom lightbox overlay ─────────────────────────────────────────────── #}
+<div class="pd-zoom-overlay" id="pd-zoom-overlay" role="dialog" aria-modal="true" aria-label="Image zoom">
+  <button class="pd-zoom-close" id="pd-zoom-close" type="button" aria-label="Close zoom">
+    <i class="bi bi-x-lg"></i>
+  </button>
+  <div class="pd-zoom-stage" id="pd-zoom-stage">
+    <img class="pd-zoom-img" id="pd-zoom-img" src="" alt="{{ product.name }}">
+  </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+{% set dr = calculate_product_discount(product) %}
+<style>
+/* ── Variant Modal ────────────────────────────────────────────────────── */
+.vm-dialog { max-width: 480px; }
+.vm-content {
+  border: none;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.vm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--color-gray-100, #f0f0f0);
+}
+.vm-product-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-black, #111);
+  line-height: 1.3;
+}
+.vm-product-price {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-black, #111);
+  margin-top: 0.25rem;
+}
+.vm-close-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--color-gray-500, #888);
+  transition: background 0.15s;
+}
+.vm-close-btn:hover { background: var(--color-gray-100, #f0f0f0); }
+.vm-body {
+  padding: 1.25rem 1.5rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.vm-option-group { margin-bottom: 1.5rem; }
+.vm-option-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-gray-500, #888);
+  margin-bottom: 0.625rem;
+}
+.vm-option-selected {
+  color: var(--color-black, #111);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 700;
+}
+.vm-qty-group { margin-bottom: 0; }
+.vm-stock-note {
+  font-size: 0.75rem;
+  color: var(--color-gray-400, #aaa);
+  margin-top: 0.5rem;
+  min-height: 1.1em;
+}
+.vm-footer {
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid var(--color-gray-100, #f0f0f0);
+}
+.vm-submit-btn {
+  width: 100%;
+  flex: unset;
+}
+
+/* ── Color Image Swatches ─────────────────────────────────────────────── */
+.pd-swatches--images {
+  gap: 0.75rem;
+}
+.pd-swatch-image-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-gray-100, #f0f0f0);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+  cursor: pointer;
+}
+.pd-swatch:hover .pd-swatch-image-wrapper {
+  transform: scale(1.1);
+}
+.pd-swatch.active .pd-swatch-image-wrapper {
+  box-shadow: 0 0 0 2px var(--color-white), 0 0 0 3.5px var(--color-black);
+}
+.pd-swatch-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pd-swatch-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-gray-500, #888);
+  margin-top: 0.5rem;
+}
+
+/* ── Color Preview Display ───────────────────────────────────────────── */
+.vm-color-preview {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: var(--color-gray-50, #f8f8f8);
+  border-radius: 8px;
+  border: 1px solid var(--color-gray-200, #e5e5e5);
+}
+.vm-color-preview.active {
+  display: flex;
+}
+.vm-color-preview img {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--color-gray-200, #e5e5e5);
+  background: var(--color-white);
+  transition: transform var(--transition-fast);
+}
+.vm-color-preview img:hover {
+  transform: scale(1.05);
+}
+.vm-color-preview span {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-black, #111);
+}
+
+</style>
+<script>
+(function () {
+  'use strict';
+
+  /* ── Helpers ──────────────────────────────────────────────────────────── */
+  function fmt(n) {
+    return 'Rp\u00a0' + parseInt(n).toLocaleString('id-ID');
+  }
+  function norm(v) {
+    if (v === null || v === undefined) return '';
+    return String(v).trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  /* ── Gallery ──────────────────────────────────────────────────────────── */
+  const mainImg   = document.getElementById('pd-main-img');
+  const imgCount  = document.getElementById('pd-img-count');
+  const thumbBtns = document.querySelectorAll('.pd-thumb');
+  let currentIdx  = 0;
+
+  const galleryUrls = [];
+  if (thumbBtns.length) {
+    thumbBtns.forEach(b => galleryUrls.push(b.dataset.src));
+  } else if (mainImg) {
+    galleryUrls.push(mainImg.src);
+  }
+
+  function switchImage(idx) {
+    if (!mainImg || !galleryUrls[idx]) return;
+    currentIdx = idx;
+    mainImg.style.opacity = '0';
+    mainImg.style.transform = 'scale(1.02)';
+    setTimeout(() => {
+      mainImg.src = galleryUrls[idx];
+      mainImg.style.opacity = '1';
+      mainImg.style.transform = 'scale(1)';
+    }, 120);
+    thumbBtns.forEach((b, i) => b.classList.toggle('active', i === idx));
+    if (imgCount) imgCount.textContent = (idx + 1) + ' / ' + galleryUrls.length;
+  }
+
+  thumbBtns.forEach((btn, i) => btn.addEventListener('click', () => switchImage(i)));
+
+  const mainFrame = document.getElementById('pd-main-frame');
+  if (mainFrame) {
+    let startX = 0;
+    mainFrame.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+    mainFrame.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - startX;
+      if (Math.abs(dx) > 50) {
+        const next = dx < 0
+          ? Math.min(currentIdx + 1, galleryUrls.length - 1)
+          : Math.max(currentIdx - 1, 0);
+        switchImage(next);
+      }
+    }, { passive: true });
+  }
+
+  /* ── Zoom lightbox ────────────────────────────────────────────────────── */
+  const zoomBtn     = document.getElementById('pd-zoom-btn');
+  const zoomOverlay = document.getElementById('pd-zoom-overlay');
+  const zoomClose   = document.getElementById('pd-zoom-close');
+  const zoomImg     = document.getElementById('pd-zoom-img');
+
+  function openZoom() {
+    if (!mainImg || !zoomImg) return;
+    zoomImg.src = galleryUrls[currentIdx] || mainImg.src;
+    zoomOverlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeZoom() {
+    zoomOverlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+  if (zoomBtn)     zoomBtn.addEventListener('click', openZoom);
+  if (mainImg)     mainImg.addEventListener('click', openZoom);
+  if (zoomClose)   zoomClose.addEventListener('click', closeZoom);
+  if (zoomOverlay) zoomOverlay.addEventListener('click', e => { if (e.target === zoomOverlay) closeZoom(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeZoom(); } });
+
+  /* ── Accordion ────────────────────────────────────────────────────────── */
+  document.querySelectorAll('.pd-accordion-trigger').forEach(trigger => {
+    trigger.addEventListener('click', function () {
+      const body   = document.getElementById(this.getAttribute('aria-controls'));
+      const isOpen = this.getAttribute('aria-expanded') === 'true';
+      document.querySelectorAll('.pd-accordion-trigger').forEach(t => {
+        t.setAttribute('aria-expanded', 'false');
+        t.classList.remove('active');
+        const b = document.getElementById(t.getAttribute('aria-controls'));
+        if (b) b.classList.remove('open');
+      });
+      if (!isOpen) {
+        this.setAttribute('aria-expanded', 'true');
+        this.classList.add('active');
+        if (body) body.classList.add('open');
+      }
+    });
+  });
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     VARIANT MODAL — All variant selection state lives here only
+     ═══════════════════════════════════════════════════════════════════════ */
+  const vmDataEl = document.getElementById('vm-variants-data');
+  if (!vmDataEl) return;  // No variants or not logged in — nothing more to do
+
+  const VARIANTS = JSON.parse(vmDataEl.textContent);
+
+  /* DOM refs */
+  const vmPriceDisplay  = document.getElementById('vm-price-display');
+  const vmColorSelected = document.getElementById('vm-color-selected');
+  const vmSizeSelected  = document.getElementById('vm-size-selected');
+  const vmSwatches      = document.querySelectorAll('.vm-swatch');
+  const vmSizePills     = document.querySelectorAll('.vm-size-pill');
+  const vmDropdown      = document.getElementById('vm-variant-select');
+  const vmQtyWrapper    = document.getElementById('vm-qty-wrapper');
+  const vmQtyInput      = document.getElementById('vm-qty-input');
+  const vmVariantId     = document.getElementById('vm-variant-id');
+  const vmQuantity      = document.getElementById('vm-quantity');
+  const vmSubmitBtn     = document.getElementById('vm-submit-btn');
+  const vmSubmitLabel   = document.getElementById('vm-submit-label');
+  const vmStockNote     = document.getElementById('vm-stock-note');
+  const vmForm          = document.getElementById('vm-form');
+  const basePrice       = parseFloat(vmPriceDisplay ? vmPriceDisplay.dataset.basePrice : 0);
+
+  /* Mode flags */
+  const needsColor     = vmSwatches.length > 0;
+  const needsSize      = vmSizePills.length > 0;
+  const isDropdown     = !!vmDropdown;
+  const hasVariants    = VARIANTS.length > 0;
+
+  /* ── Modal state (private) ──────────────────────────────────────────── */
+  let selColor   = null;
+  let selSize    = null;
+  let selVariant = null;
+  let qtyMax     = parseInt((vmQtyWrapper && vmQtyWrapper.dataset.max) || '99');
+
+  /* ── Reset all modal state on open ─────────────────────────────────── */
+  const initialQtyMax = qtyMax;  // product-level stock, never changes
+
+  function resetModal() {
+    selColor   = null;
+    selSize    = null;
+    selVariant = null;
+    qtyMax     = initialQtyMax;  // restore to product-level stock cap
+
+    vmSwatches.forEach(b => b.classList.remove('active'));
+    vmSizePills.forEach(b => b.classList.remove('active'));
+    if (vmDropdown) vmDropdown.value = '0';
+    if (vmColorSelected) vmColorSelected.textContent = '—';
+    if (vmSizeSelected)  vmSizeSelected.textContent  = '—';
+    if (vmQtyInput)  { vmQtyInput.value = '1'; vmQtyInput.max = initialQtyMax; }
+    if (vmVariantId)     vmVariantId.value = '0';
+    if (vmQuantity)      vmQuantity.value  = '1';
+    updateColorPreview(null);
+    console.log('[VM] modal reset — state cleared');
+    renderModal();
+  }
+
+  /* ── Find variant matching current selections ───────────────────────── */
+  function findVariant() {
+    if (!hasVariants) return null;
+    if (isDropdown) {
+      const vid = parseInt(vmDropdown.value) || 0;
+      return VARIANTS.find(v => v.id === vid) || null;
+    }
+    return VARIANTS.find(v => {
+      const colorOk = needsColor ? norm(v.color) === norm(selColor) : true;
+      const sizeOk  = needsSize  ? norm(v.size)  === norm(selSize)  : true;
+      return colorOk && sizeOk;
+    }) || null;
+  }
+
+  /* ── Validate that selection is complete ───────────────────────────── */
+  function isComplete() {
+    if (!hasVariants) return true;  // No-variant product: always valid
+    if (isDropdown)   return parseInt(vmDropdown.value) > 0;
+    if (needsColor && !selColor) return false;
+    if (needsSize  && !selSize)  return false;
+    return selVariant !== null;
+  }
+
+  /* ── Quantity helpers ───────────────────────────────────────────────── */
+  function setQtyMax(max) {
+    qtyMax = Math.max(0, max);
+    if (vmQtyWrapper) vmQtyWrapper.dataset.max = qtyMax;
+    if (vmQtyInput)   vmQtyInput.max = qtyMax;
+    if (vmQtyInput && parseInt(vmQtyInput.value) > qtyMax) {
+      vmQtyInput.value = Math.max(1, qtyMax);
+    }
+  }
+
+  /* ── Render modal UI from current state ────────────────────────────── */
+  function renderModal() {
+    const v     = selVariant;
+    const stock = v ? v.stock : (hasVariants ? 0 : qtyMax);
+    const valid = isComplete();
+
+    /* Price */
+    if (vmPriceDisplay) {
+      vmPriceDisplay.textContent = v ? fmt(v.price) : fmt(basePrice);
+    }
+
+    /* Qty max */
+    if (hasVariants && v) setQtyMax(v.stock);
+
+    /* Stock note */
+    if (vmStockNote) {
+      if (v && v.stock > 0) {
+        vmStockNote.textContent = 'Sisa stok: ' + v.stock;
+      } else if (v && v.stock <= 0) {
+        vmStockNote.textContent = 'Stok habis';
+      } else {
+        vmStockNote.textContent = '';
+      }
+    }
+
+    /* Swatch availability */
+    const availColors = new Set(
+      VARIANTS.filter(v => v.stock > 0 && (!needsSize || !selSize || norm(v.size) === norm(selSize)))
+               .map(v => norm(v.color))
+    );
+    const availSizes = new Set(
+      VARIANTS.filter(v => v.stock > 0 && (!needsColor || !selColor || norm(v.color) === norm(selColor)))
+               .map(v => norm(v.size))
+    );
+    vmSwatches.forEach(btn => {
+      btn.classList.toggle('pd-swatch--unavailable', !availColors.has(norm(btn.dataset.color)));
+    });
+    vmSizePills.forEach(btn => {
+      btn.classList.toggle('pd-size-pill--unavailable', !availSizes.has(norm(btn.dataset.size)));
+    });
+
+    /* Submit button */
+    const outOfStock = hasVariants && v && v.stock <= 0;
+    if (vmSubmitBtn) {
+      vmSubmitBtn.disabled = !valid || outOfStock;
+      if (vmSubmitLabel) {
+        vmSubmitLabel.textContent = outOfStock ? 'Stok Habis' : 'Tambahkan ke Keranjang';
+      }
+    }
+
+    /* Sync hidden inputs */
+    if (vmVariantId) {
+      vmVariantId.value = (v ? v.id : 0);
+      console.log('[VM] variant_id synced:', vmVariantId.value, '| valid:', valid, '| disabled:', !valid || outOfStock);
+    }
+    if (vmQuantity)  vmQuantity.value  = vmQtyInput ? (parseInt(vmQtyInput.value) || 1) : 1;
+
+    /* Gallery: update to variant images if available */
+    if (v && v.images && v.images.length > 0) {
+      v.images.forEach((src, i) => { if (galleryUrls[i] !== undefined) galleryUrls[i] = src; });
+      switchImage(0);
+    }
+  }
+
+  /* ── Swatch clicks ──────────────────────────────────────────────────── */
+  vmSwatches.forEach(btn => {
+    btn.addEventListener('click', () => {
+      vmSwatches.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selColor = btn.dataset.color || null;
+      if (vmColorSelected) vmColorSelected.textContent = selColor || '—';
+      updateColorPreview(selColor);
+      console.log('[VM] color selected:', selColor, '| norm:', norm(selColor));
+      selVariant = findVariant();
+      console.log('[VM] variant match after color:', selVariant ? selVariant.id : null);
+      renderModal();
+    });
+  });
+
+  /* ── Size pill clicks ───────────────────────────────────────────────── */
+  vmSizePills.forEach(btn => {
+    btn.addEventListener('click', () => {
+      vmSizePills.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selSize = btn.dataset.size || null;
+      if (vmSizeSelected) vmSizeSelected.textContent = selSize || '—';
+      console.log('[VM] size selected:', selSize, '| norm:', norm(selSize));
+      selVariant = findVariant();
+      console.log('[VM] variant match after size:', selVariant ? selVariant.id : null);
+      renderModal();
+    });
+  });
+
+  /* ── Dropdown change ────────────────────────────────────────────────── */
+  if (vmDropdown) {
+    vmDropdown.addEventListener('change', () => {
+      selVariant = findVariant();
+      console.log('[VM] dropdown changed — variant match:', selVariant ? selVariant.id : null);
+      renderModal();
+    });
+  }
+
+  /* ── Quantity stepper ───────────────────────────────────────────────── */
+  if (vmQtyWrapper) {
+    vmQtyWrapper.querySelectorAll('.pd-qty-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        let val = parseInt(vmQtyInput.value) || 1;
+        if (btn.dataset.action === 'increase' && val < qtyMax) vmQtyInput.value = val + 1;
+        else if (btn.dataset.action === 'decrease' && val > 1) vmQtyInput.value = val - 1;
+        if (vmQuantity) vmQuantity.value = vmQtyInput.value;
+      });
+    });
+    if (vmQtyInput) {
+      vmQtyInput.addEventListener('input', () => {
+        let val = parseInt(vmQtyInput.value) || 1;
+        if (val < 1) val = 1;
+        if (val > qtyMax) val = qtyMax;
+        vmQtyInput.value = val;
+        if (vmQuantity) vmQuantity.value = val;
+      });
+    }
+  }
+
+  /* ── Form submit guard ──────────────────────────────────────────────── */
+  if (vmForm) {
+    vmForm.addEventListener('submit', function (e) {
+      if (vmQuantity) vmQuantity.value = vmQtyInput ? (parseInt(vmQtyInput.value) || 1) : 1;
+      if (vmVariantId) vmVariantId.value = (selVariant ? selVariant.id : 0);
+      console.log('[VM] form submit — variant_id:', vmVariantId ? vmVariantId.value : 'n/a',
+                  '| quantity:', vmQuantity ? vmQuantity.value : 'n/a',
+                  '| complete:', isComplete());
+
+      if (!isComplete()) {
+        console.warn('[VM] submit blocked — selection incomplete');
+        e.preventDefault();
+        return false;
+      }
+      if (hasVariants && selVariant && selVariant.stock <= 0) {
+        console.warn('[VM] submit blocked — variant out of stock');
+        e.preventDefault();
+        return false;
+      }
+    });
+  }
+
+  /* ── Reset state every time modal opens ────────────────────────────── */
+  const modalEl = document.getElementById('variantModal');
+  if (modalEl) {
+    modalEl.addEventListener('show.bs.modal', resetModal);
+  }
+
+  /* ── Color Image Selection & Preview ─────────────────────────────────── */
+  const colorSwatchImages = document.querySelectorAll('.pd-swatch-image-wrapper');
+  const vmColorPreview    = document.getElementById('vm-color-preview');
+  const vmColorPreviewImg = document.getElementById('vm-color-preview-img');
+  const vmColorPreviewName = document.getElementById('vm-color-preview-name');
+
+  // Map color names to their image URLs
+  const colorImageMap = {};
+  vmSwatches.forEach(btn => {
+    const color = btn.dataset.color;
+    const imgWrapper = btn.querySelector('.pd-swatch-image-wrapper img');
+    if (imgWrapper) {
+      colorImageMap[color] = imgWrapper.src;
+    }
+  });
+
+  // Update color preview display
+  function updateColorPreview(colorName) {
+    if (!vmColorPreview || !vmColorPreviewImg) return;
+
+    if (colorName && colorImageMap[colorName]) {
+      vmColorPreviewImg.src = colorImageMap[colorName];
+      if (vmColorPreviewName) vmColorPreviewName.textContent = colorName;
+      vmColorPreview.classList.add('active');
+    } else {
+      vmColorPreview.classList.remove('active');
+    }
+  }
+
+  // Click on preview image = view enlarged (reuse zoom overlay)
+  if (vmColorPreviewImg) {
+    vmColorPreviewImg.style.cursor = 'zoom-in';
+    vmColorPreviewImg.addEventListener('click', e => {
+      e.stopPropagation();
+      if (vmColorPreviewImg.src && zoomImg && zoomOverlay) {
+        zoomImg.src = vmColorPreviewImg.src;
+        zoomOverlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+    });
+  }
+
+  // Click on color image = select that color
+  colorSwatchImages.forEach(wrapper => {
+    wrapper.addEventListener('click', e => {
+      e.stopPropagation();
+      const btn = wrapper.closest('.pd-swatch');
+      if (!btn) return;
+
+      // Trigger the same selection as clicking the swatch button
+      vmSwatches.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selColor = btn.dataset.color || null;
+      if (vmColorSelected) vmColorSelected.textContent = selColor || '—';
+      selVariant = findVariant();
+      updateColorPreview(selColor);
+      renderModal();
+      console.log('[VM] color selected via image:', selColor);
+    });
+  });
+
+  /* ── Apply swatch background colours ───────────────────────────────── */
+  document.querySelectorAll('.pd-swatch-inner[data-bg]').forEach(el => {
+    const raw = el.dataset.bg;
+    // Test if the browser accepts the value as a valid CSS colour.
+    // Assign to a detached element; if it sticks, the value is valid.
+    const probe = document.createElement('div');
+    probe.style.backgroundColor = raw;
+    if (probe.style.backgroundColor !== '') {
+      // Valid CSS named colour (e.g. "black", "red")
+      el.style.backgroundColor = raw;
+    } else {
+      // Not a CSS named colour — use a neutral mid-grey and rely on the text label
+      el.style.backgroundColor = '#ccc';
+    }
+  });
+
+  /* ── Initial render (modal hidden, just preps state) ───────────────── */
+  renderModal();
+
+}());
+</script>
+
+{% if config.TIKTOK_PIXEL_ID %}
+<script id="pd-tiktok-data" type="application/json">
+{
+  "content_id": {{ product.id | tojson }},
+  "content_name": {{ product.name | tojson }},
+  "price": {{ dr.final_price | tojson }},
+  "currency": "IDR"
+}
+</script>
+<script>
+(function () {
+  'use strict';
+  var dataEl = document.getElementById('pd-tiktok-data');
+  if (!dataEl) return;
+  var data = JSON.parse(dataEl.textContent);
+  _ttqEventOnce('viewcontent_' + data.content_id, function () {
+    ttq.track('ViewContent', {
+      content_id: String(data.content_id),
+      content_name: data.content_name,
+      content_type: 'product',
+      price: data.price,
+      currency: data.currency
+    });
+  });
+})();
+</script>
+{% endif %}
+
+{% endblock %}

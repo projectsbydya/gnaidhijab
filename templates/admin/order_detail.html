@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% block title %}Order #{{ order.id }} - Admin{% endblock %}
+
+{% block content %}
+<!-- ADMIN HEADER -->
+<section class="admin-header">
+    <div class="admin-header-content">
+        <div>
+            <span class="admin-label">Admin Panel</span>
+            <h1 class="admin-title">Order #{{ order.id }}</h1>
+            <p class="admin-welcome">Customer: {{ order.user.name|censor }}</p>
+        </div>
+        <a class="btn btn-outline btn-sm" href="{{ url_for('admin.order_list') }}">Back to Orders</a>
+    </div>
+</section>
+
+<!-- ORDER DETAILS -->
+<section class="admin-section">
+    <div class="admin-container">
+        <div class="admin-detail-grid">
+            <!-- LEFT COLUMN -->
+            <div class="admin-detail-column">
+                <div class="admin-detail-card">
+                    <h2 class="form-section-title">Shipping Details</h2>
+                    <div class="detail-item">
+                        <span class="detail-label">Address</span>
+                        <span class="detail-value">{{ order.shipping_address|censor }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Courier</span>
+                        <span class="detail-value">{{ order.courier }}</span>
+                    </div>
+                    {% if order.shipping_discount_amount > 0 %}
+                    <div class="detail-item">
+                        <span class="detail-label">Original Shipping Cost</span>
+                        <span class="detail-value">Rp {{ '{:,}'.format(order.original_shipping_cost) }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Shipping Discount</span>
+                        <span class="detail-value" style="color:#16a34a;">- Rp {{ '{:,}'.format(order.shipping_discount_amount) }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="detail-item">
+                        <span class="detail-label">Final Shipping Cost</span>
+                        <span class="detail-value">Rp {{ '{:,}'.format(order.shipping_cost) }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Status</span>
+                        <span class="admin-badge admin-badge--{{ order.normalized_status }}">{{ order.normalized_status|replace('_', ' ')|title }}</span>
+                    </div>
+                    {% if order.resi_number %}
+                    <div class="detail-item">
+                        <span class="detail-label">Tracking Number</span>
+                        <span class="detail-value">{{ order.resi_number }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="admin-detail-card">
+                    <h2 class="form-section-title">Order Items</h2>
+                    <div class="order-items-list">
+                        {% for item in order.items %}
+                        <div class="order-item-row">
+                            <span class="order-item-name">
+                                {{ item.product.name }}{% if item.variant %} <small style="color:#6b7280;">({{ item.variant.display_name }})</small>{% endif %} x{{ item.quantity }}
+                            </span>
+                            <span class="order-item-price">
+                                {% if item.discount_amount %}
+                                <small style="text-decoration:line-through;color:#9ca3af;">Rp {{ '{:,}'.format(item.original_price * item.quantity) }}</small><br>
+                                {% endif %}
+                                Rp {{ '{:,}'.format(item.price * item.quantity) }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="order-total">
+                        <strong>Total: Rp {{ '{:,}'.format(order.total_price) }}</strong>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- RIGHT COLUMN -->
+            <div class="admin-detail-column">
+                <div class="admin-detail-card">
+                    <h2 class="form-section-title">Payment Information</h2>
+                    {% if order.payment %}
+                    <div class="detail-item">
+                        <span class="detail-label">Method</span>
+                        <span class="detail-value">{{ order.payment.payment_method|replace('_', ' ')|title }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Status</span>
+                        <span class="admin-badge admin-badge--{{ order.payment.status }}">{{ order.payment.status|replace('_', ' ')|title }}</span>
+                    </div>
+                    {% if order.payment.transaction_id %}
+                    <div class="detail-item">
+                        <span class="detail-label">Transaction ID</span>
+                        <span class="detail-value">{{ order.payment.transaction_id }}</span>
+                    </div>
+                    {% endif %}
+                    {% if order.payment.paid_at %}
+                    <div class="detail-item">
+                        <span class="detail-label">Paid At</span>
+                        <span class="detail-value">{{ order.payment.paid_at.strftime('%d %b %Y %H:%M') }}</span>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="admin-alert admin-alert--warning">No payment method selected yet.</div>
+                    {% endif %}
+                </div>
+                
+                <div class="admin-detail-card">
+                    <h2 class="form-section-title">Tracking Information</h2>
+                    {% if order.shipment_id and order.resi_number %}
+                    <div class="admin-alert admin-alert--success">
+                        <i class="bi bi-check-circle"></i> Tracking number auto-generated by Biteship.
+                    </div>
+                    {% else %}
+                    <div class="admin-alert admin-alert--warning">
+                        <i class="bi bi-exclamation-triangle"></i> Enter tracking number manually.
+                    </div>
+                    {% endif %}
+                    <form method="post" action="{{ url_for('admin.ship_order', order_id=order.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-group">
+                            <label class="form-label">Tracking Number</label>
+                            <input type="text" name="resi_number" class="form-control" value="{{ order.resi_number or '' }}" required>
+                        </div>
+                        <button class="btn btn-primary w-100">Save Tracking</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- STATUS HISTORY -->
+        <div class="admin-detail-card" style="margin-top: 24px;">
+            <h2 class="form-section-title">Status History</h2>
+            {% if order.status_logs %}
+            <div class="table-responsive">
+                <table class="admin-table" style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+                    <thead>
+                        <tr style="border-bottom:2px solid var(--color-gray-200);">
+                            <th style="padding:10px 12px;text-align:left;color:var(--color-gray-500);font-weight:500;text-transform:uppercase;font-size:0.75rem;letter-spacing:0.05em;">Date &amp; Time</th>
+                            <th style="padding:10px 12px;text-align:left;color:var(--color-gray-500);font-weight:500;text-transform:uppercase;font-size:0.75rem;letter-spacing:0.05em;">Transition</th>
+                            <th style="padding:10px 12px;text-align:left;color:var(--color-gray-500);font-weight:500;text-transform:uppercase;font-size:0.75rem;letter-spacing:0.05em;">Changed By</th>
+                            <th style="padding:10px 12px;text-align:left;color:var(--color-gray-500);font-weight:500;text-transform:uppercase;font-size:0.75rem;letter-spacing:0.05em;">Note</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in order.status_logs %}
+                        <tr style="border-bottom:1px solid var(--color-gray-100);">
+                            <td style="padding:10px 12px;color:var(--color-gray-600);white-space:nowrap;">
+                                {{ log.created_at.strftime('%d %b %Y, %H:%M') if log.created_at else '—' }}
+                            </td>
+                            <td style="padding:10px 12px;">
+                                {% if log.old_status %}
+                                <span class="admin-badge admin-badge--{{ log.old_status }}">{{ log.old_status|replace('_',' ')|title }}</span>
+                                <span style="color:var(--color-gray-400);margin:0 6px;">→</span>
+                                {% else %}
+                                <span style="color:var(--color-gray-400);font-size:0.8125rem;margin-right:6px;">—</span>
+                                {% endif %}
+                                <span class="admin-badge admin-badge--{{ log.new_status }}">{{ log.new_status|replace('_',' ')|title }}</span>
+                            </td>
+                            <td style="padding:10px 12px;color:var(--color-gray-700);font-family:monospace;font-size:0.8125rem;">
+                                {{ log.changed_by or '—' }}
+                            </td>
+                            <td style="padding:10px 12px;color:var(--color-gray-600);">
+                                {{ log.note or '—' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="admin-alert admin-alert--warning">No status history recorded yet.</div>
+            {% endif %}
+        </div>
+
+        <div class="admin-back">
+            <a href="{{ url_for('admin.order_list') }}" class="link-arrow"><i class="bi bi-arrow-left"></i> Back to Orders</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

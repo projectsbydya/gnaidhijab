@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}{% if video %}Edit Video{% else %}Add Video{% endif %} - Admin{% endblock %}
+
+{% block content %}
+<!-- ADMIN HEADER -->
+<section class="admin-header">
+    <div class="admin-header-content">
+        <div>
+            <span class="admin-label">Admin Panel</span>
+            <h1 class="admin-title">{% if video %}Edit Video{% else %}Add Video{% endif %}</h1>
+        </div>
+    </div>
+</section>
+
+<!-- VIDEO FORM -->
+<section class="admin-section">
+    <div class="admin-container">
+        <form method="post" enctype="multipart/form-data" class="admin-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="form-section">
+                <h2 class="form-section-title">Video Details</h2>
+                <div class="form-group">
+                    <label class="form-label">Title</label>
+                    <input type="text" name="title" class="form-control" value="{{ video.title if video else '' }}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description (optional)</label>
+                    <textarea name="description" class="form-control" rows="3">{{ video.description if video else '' }}</textarea>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h2 class="form-section-title">Video File</h2>
+                <div class="form-group">
+                    <label class="form-label">Upload Video</label>
+                    <input type="file" name="video_file" class="form-control" accept="video/*" {% if not video %}required{% endif %}>
+                    <small class="form-text">Supported formats: MP4, AVI, MOV, MKV. Max 50MB.</small>
+                    {% if video and video.video_file %}
+                    <div class="form-video-preview">
+                        <small class="form-text">Current video:</small><br>
+                        <video class="admin-preview-video" controls muted>
+                            <source src="{{ url_for('static', filename=video.video_file) }}" type="video/mp4">
+                        </video>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <div class="form-check">
+                    <input type="checkbox" name="is_active" class="form-check-input" id="is_active" {% if not video or video.is_active %}checked{% endif %}>
+                    <label class="form-check-label" for="is_active">Video Active</label>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button class="btn btn-primary">Save Video</button>
+                <a href="{{ url_for('admin.video_list') }}" class="btn btn-outline">Cancel</a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Order History - {{ config.STORE_NAME }}{% endblock %}
+
+{% block content %}
+<!-- PAGE HEADER -->
+<section class="page-header">
+    <div class="container-narrow">
+        <span class="section-label">Account</span>
+        <h1 class="page-title">Order History</h1>
+    </div>
+</section>
+
+<!-- ORDERS LIST -->
+<section class="section">
+    <div class="container-narrow">
+        {% if orders %}
+        <div class="orders-list">
+            {% for order in orders %}
+            <div class="order-card">
+                <div class="order-header">
+                    <div class="order-info">
+                        <span class="order-id">Order #{{ order.id }}</span>
+                        <span class="order-date">{{ order.created_at.strftime('%d %b %Y') }}</span>
+                    </div>
+                    <span class="order-status order-status--{{ order.normalized_status }}">{{ order.normalized_status|replace('_', ' ')|title }}</span>
+                    {% if order.status == 'cancelled' and order.cancellation_reason == 'expired_payment' %}
+                    <span class="order-status-reason">Payment expired</span>
+                    {% endif %}
+                </div>
+                <div class="order-body">
+                    <div class="order-total">
+                        <span class="order-total-label">Total</span>
+                        <span class="order-total-value">Rp {{ '{:,}'.format(order.total_price) }}</span>
+                    </div>
+                </div>
+                <div class="order-footer">
+                    <a href="{{ url_for('orders.order_detail', order_id=order.id) }}" class="link-arrow">View Details <i class="bi bi-arrow-right"></i></a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-box empty-icon"></i>
+            <h2 class="empty-title">No orders yet</h2>
+            <p class="empty-desc">Your order history will appear here once you make a purchase</p>
+            <a href="{{ url_for('shop.products') }}" class="btn btn-primary">Start Shopping</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

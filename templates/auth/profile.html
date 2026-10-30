@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% block title %}My Profile - {{ config.STORE_NAME }}{% endblock %}
+
+{% block content %}
+<!-- PAGE HEADER -->
+<section class="page-header">
+    <div class="container-narrow">
+        <span class="section-label">Account</span>
+        <h1 class="page-title">My Profile</h1>
+    </div>
+</section>
+
+<!-- PROFILE FORM -->
+<section class="section">
+    <div class="container-narrow">
+        <form method="post" class="profile-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <!-- Personal Info -->
+            <div class="form-section">
+                <h2 class="form-section-title">Personal Information</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" name="name" class="form-control" value="{{ user.name }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" value="{{ user.email }}" disabled>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Phone Number</label>
+                    <input type="text" name="phone" class="form-control" value="{{ user.phone or '' }}" placeholder="Your phone number">
+                </div>
+            </div>
+            
+            <!-- Address -->
+            <div class="form-section">
+                <h2 class="form-section-title">Shipping Address</h2>
+                <div class="form-group">
+                    <label class="form-label">Street Address / Detail Alamat <span class="text-danger">*</span></label>
+                    <input type="text" id="street_address" name="street_address" class="form-control" placeholder="Street name, building number, RT/RW">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Village / Kelurahan <span class="text-danger">*</span></label>
+                        <input type="text" id="village" name="village" class="form-control" placeholder="Village name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Subdistrict / Kecamatan <span class="text-danger">*</span></label>
+                        <input type="text" id="subdistrict" name="subdistrict" class="form-control" placeholder="Subdistrict name">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Province <span class="text-danger">*</span></label>
+                        <select id="province" name="province" class="form-control" required>
+                            <option value="">Select Province</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">City / Regency <span class="text-danger">*</span></label>
+                        <select id="city" name="city" class="form-control" required disabled>
+                            <option value="">Select City</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Postal Code <span class="text-danger">*</span></label>
+                        <input type="text" id="postal_code" name="postal_code" class="form-control" placeholder="5 digits" maxlength="5" pattern="\d{5}" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Full Address (auto-generated from above)</label>
+                    <textarea id="full_address" name="full_address" class="form-control" rows="3" readonly>{{ decrypted_address|default('', true) }}</textarea>
+                    <small class="form-text">This complete address will be saved to your profile and used for shipping</small>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-large">Save Changes</button>
+        </form>
+    </div>
+</section>
+
+<script>
+const provinceSelect = document.getElementById('province');
+const citySelect = document.getElementById('city');
+const subdistrictInput = document.getElementById('subdistrict');
+const villageInput = document.getElementById('village');
+const streetInput = document.getElementById('street_address');
+const postalCodeInput = document.getElementById('postal_code');
+const fullAddressInput = document.getElementById('full_address');
+
+let provincesData = [];
+let citiesData = [];
+
+// Load provinces on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadProvinces();
+});
+
+// Auto-fill full address when any address field changes
+streetInput.addEventListener('input', updateFullAddress);
+villageInput.addEventListener('input', updateFullAddress);
+subdistrictInput.addEventListener('input', updateFullAddress);
+postalCodeInput.addEventListener('input', updateFullAddress);
+
+function updateFullAddress() {
+    const street = streetInput.value.trim();
+    const village = villageInput.value.trim();
+    const subdistrict = subdistrictInput.value.trim();
+    const province = provinceSelect.value || '';
+    const city = citySelect.value || '';
+    const postalCode = postalCodeInput.value.trim();
+
+    let addressParts = [];
+
+    // Build address in proper Indonesian format
+    if (street) addressParts.push(street);
+    if (village) addressParts.push(village);
+    if (subdistrict) addressParts.push(subdistrict);
+    if (city && city !== 'Select City' && city !== 'Pilih Kota/Kabupaten') addressParts.push(city);
+    if (province && province !== 'Select Province' && province !== 'Pilih Provinsi') addressParts.push(province);
+    if (postalCode) addressParts.push(postalCode);
+
+    fullAddressInput.value = addressParts.join(', ');
+}
+
+async function loadProvinces() {
+    try {
+        const response = await fetch('/api/provinces');
+        const result = await response.json();
+        if (response.ok) {
+            provincesData = result.provinces;
+            populateProvinceDropdown(provincesData);
+        } else {
+            console.error('Gagal memuat daftar provinsi.');
+        }
+    } catch (error) {
+        console.error('Error loading provinces:', error);
+    }
+}
+
+function populateProvinceDropdown(provinces) {
+    provinceSelect.innerHTML = '<option value="">Pilih Provinsi</option>';
+
+    provinces.forEach(province => {
+        const option = document.createElement('option');
+        option.value = province;  // Use province name directly
+        option.textContent = province;
+        provinceSelect.appendChild(option);
+    });
+}
+
+// Handle province change
+provinceSelect.addEventListener('change', async function() {
+    const provinceName = this.value;
+    citySelect.disabled = true;
+    citySelect.innerHTML = '<option value="">Pilih Kota/Kabupaten</option>';
+
+    if (!provinceName) {
+        updateFullAddress();
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/cities?province=${encodeURIComponent(provinceName)}`);
+        const result = await response.json();
+        if (response.ok) {
+            citiesData = result.cities;
+            populateCityDropdown(citiesData);
+            citySelect.disabled = false;
+        } else {
+            console.error('Gagal memuat daftar kota:', result.error);
+        }
+    } catch (error) {
+        console.error('Error loading cities:', error);
+    }
+
+    updateFullAddress();
+});
+
+function populateCityDropdown(cities) {
+    citySelect.innerHTML = '<option value="">Pilih Kota/Kabupaten</option>';
+
+    cities.forEach(city => {
+        const option = document.createElement('option');
+        option.value = city;  // Use city name directly
+        option.textContent = city;
+        citySelect.appendChild(option);
+    });
+}
+
+// Handle city change
+citySelect.addEventListener('change', function() {
+    updateFullAddress();
+});
+</script>
+{% endblock %}

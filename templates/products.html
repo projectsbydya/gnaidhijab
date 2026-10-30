@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}Collection — {{ config.STORE_NAME }}{% endblock %}
+
+{% block content %}
+
+{# ── Page header ──────────────────────────────────────────────── #}
+<header class="pc-header">
+  <div class="pc-header-inner">
+    <span class="section-label">New Arrivals</span>
+    <h1 class="pc-title">Collection</h1>
+    <p class="pc-subtitle">Thoughtfully designed pieces for the modern wardrobe</p>
+  </div>
+</header>
+
+{# ── Products grid ────────────────────────────────────────────── #}
+<section class="products-section">
+  <div class="container-fluid">
+
+    {% if products %}
+    <div class="products-grid">
+      {% for product in products %}
+      {%- set href = url_for('shop.product_detail_slug', slug=product.slug) if product.slug else url_for('shop.product_detail', product_id=product.id) -%}
+      {%- set cover = product.primary_image -%}
+      {%- set active_variants = product.variants | selectattr('is_active') | list -%}
+      {%- set colors = [] -%}
+      {%- for v in active_variants -%}
+        {%- if v.color and v.color not in colors -%}{%- set _ = colors.append(v.color) -%}{%- endif -%}
+      {%- endfor -%}
+      {%- set sold_out = product.effective_stock <= 0 -%}
+      {%- set dr = calculate_product_discount(product) -%}
+
+      <article class="product-card">
+        <a href="{{ href }}" aria-label="{{ product.name }}">
+
+          {# Image frame #}
+          <div class="product-image">
+            {% if cover %}
+            <img src="{{ url_for('static', filename=cover) }}"
+                 alt="{{ product.name }}"
+                 loading="lazy"
+                 decoding="async">
+            {% else %}
+            <div class="product-image-empty">
+              <i class="bi bi-image"></i>
+            </div>
+            {% endif %}
+
+            {# Badge #}
+            {% if sold_out %}
+            <span class="product-badge product-badge--sold">Sold out</span>
+            {% endif %}
+            {% if dr.is_applied %}
+            {%- set disc_pct = dr.discount_value if dr.discount_type == 'percentage' else ((dr.savings * 100) // dr.original_price) -%}
+            <span class="product-badge product-badge--sale">-{{ disc_pct }}%</span>
+            {% endif %}
+
+            {# Quick-view pill #}
+            <div class="product-hover" aria-hidden="true">
+              <span class="product-hover-text">Quick View</span>
+            </div>
+          </div>
+
+          {# Info #}
+          <div class="product-info">
+            <h3 class="product-name">{{ product.name }}</h3>
+            <p class="product-price">
+              {%- if dr.is_applied %}<span class="product-price--original">Rp {{ '{:,}'.format(dr.original_price) }}</span>{% endif -%}
+              Rp {{ '{:,}'.format(dr.final_price) }}
+            </p>
+            {%- if dr.is_applied %}<p class="product-savings">Hemat Rp {{ '{:,}'.format(dr.savings) }}</p>{% endif %}
+
+            {# Color dots — max 5 shown #}
+            {% if colors %}
+            <div class="product-colors" aria-label="Available colours">
+              {% for c in colors[:5] %}
+              <span class="product-color-dot" title="{{ c }}"
+                    data-bg="{{ c | lower }}"></span>
+              {% endfor %}
+              {% if colors | length > 5 %}
+              <span class="product-color-more">+{{ colors | length - 5 }}</span>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+
+        </a>
+      </article>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="pc-empty">
+      <i class="bi bi-bag"></i>
+      <p>New collection coming soon.</p>
+    </div>
+    {% endif %}
+
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.product-color-dot[data-bg]').forEach(function(el) {
+  el.style.background = el.dataset.bg;
+});
+</script>
+{% endblock %}

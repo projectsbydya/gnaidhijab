@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order #{{ order.id }} Confirmed</title>
+<style>
+  body { margin: 0; padding: 0; background: #f5f5f5; font-family: 'Helvetica Neue', Arial, sans-serif; }
+  .wrapper { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .header { background: #1a1a1a; padding: 28px 40px; text-align: center; }
+  .header img { height: 48px; width: auto; display: block; margin: 0 auto; }
+  .body { padding: 40px; color: #374151; line-height: 1.7; }
+  .body h2 { margin: 0 0 8px; font-size: 20px; color: #111827; }
+  .body p { margin: 0 0 14px; font-size: 15px; }
+  .info-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 20px 24px; margin: 20px 0; }
+  .info-box table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .info-box td { padding: 6px 0; vertical-align: top; }
+  .info-box td:first-child { color: #6b7280; width: 140px; }
+  .info-box td:last-child { color: #111827; font-weight: 500; }
+  .items-table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 20px 0; }
+  .items-table th { text-align: left; padding: 8px 0; border-bottom: 2px solid #e5e7eb; color: #6b7280; font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .items-table td { padding: 10px 0; border-bottom: 1px solid #f3f4f6; color: #374151; }
+  .items-table .amount { text-align: right; }
+  .totals { text-align: right; font-size: 14px; margin-top: 8px; }
+  .totals tr td { padding: 4px 0; color: #6b7280; }
+  .totals .grand-total td { font-size: 16px; font-weight: 700; color: #111827; padding-top: 12px; border-top: 2px solid #e5e7eb; }
+  .btn { display: inline-block; margin: 24px 0; padding: 14px 32px; background: #1a1a1a; color: #ffffff !important; text-decoration: none; border-radius: 4px; font-size: 14px; letter-spacing: 0.05em; }
+  .divider { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
+  .footer { padding: 24px 40px; background: #f9fafb; text-align: center; color: #9ca3af; font-size: 12px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    {% if logo_url %}<img src="{{ logo_url }}" alt="{{ store_name }}">{% else %}<span style="color:#fff;font-size:20px;font-weight:700;letter-spacing:.1em;">{{ store_name }}</span>{% endif %}
+  </div>
+  <div class="body">
+    <h2>Order Confirmed!</h2>
+    <p>Hi {{ user.name }}, thank you for your order. We've received it and it's now awaiting payment.</p>
+
+    <div class="info-box">
+      <table>
+        <tr><td>Order Number</td><td>#{{ order.id }}</td></tr>
+        <tr><td>Date</td><td>{{ order.created_at.strftime('%d %B %Y, %H:%M') }}</td></tr>
+        <tr><td>Status</td><td>Awaiting Payment</td></tr>
+        <tr><td>Shipping To</td><td>{{ order.shipping_address }}</td></tr>
+        <tr><td>Courier</td><td>{{ order.courier | upper }} — {{ order.service }}</td></tr>
+      </table>
+    </div>
+
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Qty</th>
+          <th class="amount">Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in order.items %}
+        <tr>
+          <td>
+            {{ item.product.name }}
+            {% if item.variant %}<br><small style="color:#9ca3af;">{{ item.variant.display_name }}</small>{% endif %}
+          </td>
+          <td>{{ item.quantity }}</td>
+          <td class="amount">
+            {% if item.discount_amount %}
+            <span style="text-decoration:line-through;color:#9ca3af;font-size:.85em;">Rp {{ '{:,}'.format(item.original_price * item.quantity) }}</span><br>
+            {% endif %}
+            Rp {{ '{:,}'.format(item.price * item.quantity) }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <table class="totals" style="width:100%">
+      <tr><td>Subtotal</td><td>Rp {{ '{:,}'.format(subtotal) }}</td></tr>
+      <tr><td>Shipping ({{ order.courier | upper }})</td><td>Rp {{ '{:,}'.format(order.shipping_cost) }}</td></tr>
+      <tr class="grand-total"><td><strong>Total</strong></td><td><strong>Rp {{ '{:,}'.format(order.total_price) }}</strong></td></tr>
+    </table>
+
+    <a href="{{ store_url }}/orders/{{ order.id }}" class="btn">View Order &amp; Pay</a>
+
+    <hr class="divider">
+    <p style="font-size:13px;color:#6b7280;">Silakan selesaikan pembayaran sebelum batas waktu untuk menghindari pembatalan. Jika ada pertanyaan, hubungi kami melalui WhatsApp.</p>
+  </div>
+  <div class="footer">
+    &copy; {{ store_name }}. All rights reserved.<br>
+    Order #{{ order.id }} placed on {{ order.created_at.strftime('%d %B %Y') }}.
+  </div>
+</div>
+</body>
+</html>

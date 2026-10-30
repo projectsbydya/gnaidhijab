@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% block title %}Shopping Bag - {{ config.STORE_NAME }}{% endblock %}
+
+{% block content %}
+<!-- PAGE HEADER -->
+<section class="page-header">
+    <div class="container-narrow">
+        <span class="section-label">Your Selection</span>
+        <h1 class="page-title">Shopping Bag</h1>
+    </div>
+</section>
+
+<!-- CART CONTENT -->
+<section class="section">
+    <div class="container-narrow">
+        {% if items %}
+        <form id="cart-form" method="post" action="{{ url_for('cart.update_cart') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <!-- Cart Items -->
+            <div class="cart-items">
+                {% for item in items %}
+                {# Encode cart_key for HTML field name: replace ':' with '-' #}
+                {% set field_key = item.cart_key | replace(':', '-') %}
+                {% if item.invalid %}
+                <div class="cart-item cart-item--unavailable">
+                    <div class="cart-item-info">
+                        <h3 class="cart-item-name">
+                            {% if item.product %}{{ item.product.name }}{% else %}Produk tidak dikenal{% endif %}
+                        </h3>
+                        <span class="cart-item-badge">Unavailable</span>
+                        <p class="cart-item-reason">{{ item.invalid_reason }}</p>
+                    </div>
+                </div>
+                {% else %}
+                <div class="cart-item">
+                    <div class="cart-item-image-wrapper">
+                        <div class="cart-item-image">
+                            {% set img = item.product.primary_image %}
+                            {% if img %}
+                            <img src="{{ url_for('static', filename=img) }}" alt="{{ item.product.name }}">
+                            {% else %}
+                            <div class="cart-item-placeholder"><i class="bi bi-image"></i></div>
+                            {% endif %}
+                        </div>
+                        {% if item.variant %}
+                        <div class="cart-item-variant-badge">
+                            {% if item.variant.color_image_path %}
+                            <img src="{{ url_for('static', filename=item.variant.color_image_path) }}" alt="{{ item.variant.color }}" title="{{ item.variant.display_name }}">
+                            {% elif item.variant.color %}
+                            <span class="cart-item-color-dot" style="background-color: {{ item.variant.color | lower }};" title="{{ item.variant.display_name }}"></span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="cart-item-details">
+                        <h3 class="cart-item-name">{{ item.product.name }}</h3>
+                        {% if item.variant %}
+                        <p class="cart-item-variant" style="font-size:.8125rem;color:#6b7280;margin:0 0 .25rem;">
+                            {{ item.variant.display_name }}
+                        </p>
+                        {% endif %}
+                        {% if item.discount_applied %}
+                        <p class="cart-item-price">
+                            <span style="text-decoration:line-through;color:#9ca3af;font-size:.85em;">Rp {{ '{:,}'.format(item.original_price) }}</span>
+                            Rp {{ '{:,}'.format(item.unit_price) }}
+                        </p>
+                        {% else %}
+                        <p class="cart-item-price">Rp {{ '{:,}'.format(item.unit_price) }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="cart-item-quantity">
+                        <input type="number" name="qty_{{ field_key }}" value="{{ item.quantity }}" min="1" class="qty-input">
+                    </div>
+                    <div class="cart-item-subtotal">
+                        <p class="cart-item-price">Rp {{ '{:,}'.format(item.subtotal) }}</p>
+                    </div>
+                    <div class="cart-item-actions">
+                        <button type="submit"
+                                formaction="{{ url_for('cart.remove_from_cart') }}"
+                                formmethod="post"
+                                name="cart_key"
+                                value="{{ item.cart_key }}"
+                                class="btn-icon" title="Remove">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            
+            <!-- Cart Summary -->
+            <div class="cart-summary">
+                <div class="cart-total">
+                    <span class="cart-total-label">Total</span>
+                    <span class="cart-total-value">Rp {{ '{:,}'.format(total) }}</span>
+                </div>
+                {% if config.MAINTENANCE_MODE %}
+                <div class="alert alert-warning mt-3" role="alert">
+                    <i class="bi bi-tools me-2"></i>{{ config.CHECKOUT_DISABLED_MESSAGE }}
+                </div>
+                {% endif %}
+                <div class="cart-actions">
+                    {% if config.MAINTENANCE_MODE %}
+                    <button type="button" class="btn btn-primary" disabled title="{{ config.CHECKOUT_DISABLED_MESSAGE }}">
+                        <i class="bi bi-tools me-1"></i>{{ config.CHECKOUT_DISABLED_BUTTON_TEXT }}
+                    </button>
+                    {% else %}
+                    <a href="{{ url_for('checkout.checkout') }}" class="btn btn-primary">Proceed to Checkout</a>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+        {% else %}
+        <!-- Empty Cart -->
+        <div class="empty-state">
+            <i class="bi bi-bag-x empty-icon"></i>
+            <h2 class="empty-title">Your bag is empty</h2>
+            <p class="empty-desc">Discover our collection and add items to your bag</p>
+            <a href="{{ url_for('shop.products') }}" class="btn btn-primary">Start Shopping</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- CONTINUE SHOPPING -->
+<section class="section" style="padding-top: 2rem;">
+    <div class="container-narrow text-center">
+        <a href="{{ url_for('shop.products') }}" class="link-arrow"><i class="bi bi-arrow-left"></i> Continue Shopping</a>
+    </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('cart-form');
+    const qtyInputs = document.querySelectorAll('input[name^="qty_"]');
+    let debounceTimer;
+
+    qtyInputs.forEach(function(input) {
+        input.addEventListener('change', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                if (form) form.submit();
+            }, 300);
+        });
+    });
+});
+</script>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% if config.TIKTOK_PIXEL_ID and ttq_add %}
+{% set add_content_name = ttq_add.product_name ~ (' — ' ~ ttq_add.variant_name if ttq_add.variant_name else '') %}
+<script>
+(function () {
+  _ttqEventOnce('addtocart_{{ ttq_add.product_id }}_{{ ttq_add.variant_id | default(0) }}_{{ ttq_add.ts }}', function () {
+    ttq.track('AddToCart', {
+      content_id: '{{ ttq_add.product_id }}',
+      content_name: {{ add_content_name | tojson }},
+      content_type: 'product',
+      price: {{ ttq_add.unit_price }},
+      quantity: {{ ttq_add.quantity }},
+      currency: 'IDR'
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

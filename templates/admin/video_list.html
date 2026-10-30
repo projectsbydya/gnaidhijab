@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}Manage Videos - Admin{% endblock %}
+
+{% block content %}
+<!-- ADMIN HEADER -->
+<section class="admin-header">
+    <div class="admin-header-content">
+        <div>
+            <span class="admin-label">Admin Panel</span>
+            <h1 class="admin-title">Videos</h1>
+        </div>
+        <a href="{{ url_for('admin.video_create') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Video</a>
+    </div>
+</section>
+
+<!-- VIDEOS LIST -->
+<section class="admin-section">
+    <div class="admin-container">
+        {% if videos %}
+        <div class="admin-table-wrapper">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Preview</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for video in videos %}
+                    <tr>
+                        <td>{{ video.title }}</td>
+                        <td>
+                            {% if video.video_file %}
+                            <video class="admin-video-thumb" muted>
+                                <source src="{{ url_for('static', filename=video.video_file) }}" type="video/mp4">
+                            </video>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if video.is_active %}
+                            <span class="admin-badge admin-badge--success">Active</span>
+                            {% else %}
+                            <span class="admin-badge admin-badge--secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ video.created_at.strftime('%d %b %Y') }}</td>
+                        <td>
+                            <div class="admin-actions">
+                                <a href="{{ url_for('admin.video_edit', video_id=video.id) }}" class="btn btn-outline btn-sm">Edit</a>
+                                <form method="post" action="{{ url_for('admin.video_delete', video_id=video.id) }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-sm btn-danger" type="submit" onclick="return confirm('Delete this video?')">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-camera-video empty-icon"></i>
+            <h2 class="empty-title">No videos yet</h2>
+            <p class="empty-desc">Upload promotional videos for the homepage</p>
+            <a href="{{ url_for('admin.video_create') }}" class="btn btn-primary">Add Video</a>
+        </div>
+        {% endif %}
+        <div class="admin-back">
+            <a href="{{ url_for('admin.dashboard') }}" class="link-arrow"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

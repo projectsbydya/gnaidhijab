@@ -1,0 +1,403 @@
+{% extends 'base.html' %}
+{% block title %}Checkout - {{ config.STORE_NAME }}{% endblock %}
+
+{% block content %}
+<!-- PAGE HEADER -->
+<section class="page-header">
+    <div class="container-narrow">
+        <span class="section-label">Complete Your Order</span>
+        <h1 class="page-title">Checkout</h1>
+    </div>
+</section>
+
+<!-- CHECKOUT CONTENT -->
+<section class="section">
+    <div class="container-narrow">
+        <div id="checkout-message" class="alert" style="display: none;"></div>
+        
+        <div class="checkout-grid">
+            <!-- LEFT: Shipping Form -->
+            <div class="checkout-form-section">
+                <h2 class="checkout-section-title">Shipping Details</h2>
+                <form id="checkout-form" class="checkout-form">
+                    <!-- Debug info - can be removed after testing -->
+                    {% if not decrypted_address %}
+                    <div class="alert alert-warning">
+                        <strong>Debug:</strong> No address found for user. Please update your profile.
+                    </div>
+                    {% endif %}
+                    
+                    <div class="form-group">
+                        <label class="form-label">Full Address <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="full_address" name="full_address" rows="3"
+                            placeholder="Enter your complete address: Street, Village, Subdistrict, City, Province, Postal Code"
+                            required>{% if decrypted_address %}{{ decrypted_address }}{% endif %}</textarea>
+                        <small class="form-text">Alamat lengkap: Jalan, Desa/Kelurahan, Kecamatan, Kota/Kabupaten, Provinsi, Kode Pos</small>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Postal Code</label>
+                            <input class="form-control" id="destination_postal" name="destination_postal"
+                                placeholder="5 digits" maxlength="5" pattern="\d{5}"
+                                value="{% if decrypted_postal %}{{ decrypted_postal }}{% endif %}"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Courier</label>
+                            <select class="form-control" id="courier" name="courier" required>
+                                <option value="" disabled selected>Loading couriers...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button type="button" id="check-shipping-btn" class="btn btn-outline btn-sm">Calculate Shipping</button>
+                    </div>
+                    <div class="form-group" id="shipping-options-container" style="display: none;">
+                        <label class="form-label">Select Shipping Option</label>
+                        <div id="shipping-options" class="shipping-options"></div>
+                    </div>
+                    <button type="button" id="checkout-btn" class="btn btn-primary btn-large">Place Order</button>
+                </form>
+            </div>
+            
+            <!-- RIGHT: Order Summary -->
+            <div class="checkout-summary-section">
+                <h2 class="checkout-section-title">Order Summary</h2>
+                {% if items %}
+                <div class="checkout-items">
+                    {% for item in items %}
+                    <div class="checkout-item">
+                        <div class="checkout-item-info">
+                            <span class="checkout-item-name">{{ item.product.name }}</span>
+                            {% if item.variant %}
+                            <span class="checkout-item-qty" style="font-size:.8rem;color:#6b7280;">{{ item.variant.display_name }}</span>
+                            {% endif %}
+                            <span class="checkout-item-qty">Qty: {{ item.quantity }}</span>
+                        </div>
+                        <div style="text-align:right;">
+                            {% if item.discount_applied %}
+                            <span style="display:block;text-decoration:line-through;color:#9ca3af;font-size:.8rem;">Rp {{ '{:,}'.format(item.original_price * item.quantity) }}</span>
+                            {% endif %}
+                            <span class="checkout-item-price">Rp {{ '{:,}'.format(item.subtotal) }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="checkout-totals">
+                    <div class="checkout-total-row">
+                        <span>Subtotal</span>
+                        <span>Rp {{ '{:,}'.format(subtotal) }}</span>
+                    </div>
+                    {% if total_discount %}
+                    <div class="checkout-total-row" style="color:#16a34a;">
+                        <span>Hemat Produk</span>
+                        <span>- Rp {{ '{:,}'.format(total_discount) }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="checkout-total-row" id="original-shipping-row" style="display:none;">
+                        <span>Ongkir Asli</span>
+                        <span id="display-original-shipping">-</span>
+                    </div>
+                    <div class="checkout-total-row" id="shipping-discount-row" style="display:none;color:#16a34a;">
+                        <span>Diskon Ongkir</span>
+                        <span id="display-shipping-discount">-</span>
+                    </div>
+                    <div class="checkout-total-row">
+                        <span>Ongkir</span>
+                        <span id="display-shipping">-</span>
+                    </div>
+                    <div class="checkout-total-row checkout-total-final">
+                        <span>Total</span>
+                        <span id="display-total" data-subtotal="{{ subtotal | default(0) | int }}">Rp {{ '{:,}'.format(subtotal) }}</span>
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <p class="empty-desc">Your bag is empty</p>
+                    <a href="{{ url_for('shop.products') }}" class="link-arrow"><i class="bi bi-arrow-left"></i> Continue Shopping</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+<script>
+// Wait for DOM to be fully ready
+document.addEventListener('DOMContentLoaded', function() {
+    initCheckout();
+});
+
+function initCheckout() {
+    // Get all required elements with guards
+    const _csrf = '{{ csrf_token() }}';
+    const checkoutBtn = document.getElementById('checkout-btn');
+    const checkShippingBtn = document.getElementById('check-shipping-btn');
+    const shippingOptionsContainer = document.getElementById('shipping-options-container');
+    const shippingOptionsList = document.getElementById('shipping-options');
+    const fullAddressEl = document.getElementById('full_address');
+    const destinationPostalEl = document.getElementById('destination_postal');
+    const courierEl = document.getElementById('courier');
+    
+    // Guard: If checkout button not found, exit (cart might be empty)
+    if (!checkoutBtn) {
+        return;
+    }
+    
+    // Use window._selectedShipping to make it accessible across functions
+    window._selectedShipping = null;
+    
+    // Load couriers
+    loadCouriers(courierEl);
+    
+    // Attach check shipping event
+    if (checkShippingBtn) {
+        checkShippingBtn.addEventListener('click', async function() {
+            const destinationPostal = destinationPostalEl ? destinationPostalEl.value.trim() : '';
+            
+            if (!destinationPostal) {
+                showMessage('Kode pos tujuan wajib diisi.', 'danger');
+                if (destinationPostalEl) destinationPostalEl.focus();
+                return;
+            }
+            
+            if (!/^\d{5}$/.test(destinationPostal)) {
+                showMessage('Kode pos harus 5 digit angka.', 'danger');
+                if (destinationPostalEl) destinationPostalEl.focus();
+                return;
+            }
+            
+            checkShippingBtn.disabled = true;
+            checkShippingBtn.textContent = 'Menghitung...';
+            
+            try {
+                const response = await fetch('/api/shipping-cost', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _csrf },
+                    body: JSON.stringify({ destination_postal: destinationPostal })
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    showMessage(result.error || 'Gagal mengambil ongkir.', 'danger');
+                    return;
+                }
+                
+                if (!result.options || result.options.length === 0) {
+                    showMessage('Tidak ada layanan ongkir untuk rute ini.', 'warning');
+                    return;
+                }
+                
+                renderShippingOptions(result.options, shippingOptionsList, shippingOptionsContainer);
+                showMessage('Ongkir berhasil dihitung. Pilih layanan yang tersedia.', 'success');
+            } catch (error) {
+                showMessage('Terjadi kesalahan ketika mengambil ongkir.', 'danger');
+            } finally {
+                checkShippingBtn.disabled = false;
+                checkShippingBtn.textContent = 'Hitung Ongkir';
+            }
+        });
+    }
+    
+    // Attach checkout event
+    checkoutBtn.addEventListener('click', async function() {
+        const fullAddress = fullAddressEl ? fullAddressEl.value.trim() : '';
+        const destinationPostal = destinationPostalEl ? destinationPostalEl.value.trim() : '';
+        const courier = courierEl ? courierEl.value : '';
+        
+        // Validation
+        if (!fullAddress) {
+            showMessage('Alamat lengkap wajib diisi. Silakan isi textarea Full Address.', 'danger');
+            if (fullAddressEl) fullAddressEl.focus();
+            return;
+        }
+        
+        if (!destinationPostal) {
+            showMessage('Kode pos wajib diisi.', 'danger');
+            if (destinationPostalEl) destinationPostalEl.focus();
+            return;
+        }
+        
+        if (!courier) {
+            showMessage('Silakan pilih kurir terlebih dahulu.', 'danger');
+            if (courierEl) courierEl.focus();
+            return;
+        }
+        
+        if (!window._selectedShipping) {
+            showMessage('Silakan klik "Hitung Ongkir" dan pilih layanan ongkir terlebih dahulu.', 'danger');
+            return;
+        }
+        
+        // Prepare payload
+        const payload = {
+            shipping_address: fullAddress,
+            courier: window._selectedShipping.courier,
+            service: window._selectedShipping.service,
+            destination_postal: destinationPostal
+        };
+        
+        checkoutBtn.disabled = true;
+        checkoutBtn.textContent = 'Processing...';
+        
+        try {
+            const response = await fetch('/api/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _csrf },
+                body: JSON.stringify(payload)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.order_id) {
+                showMessage('Pesanan berhasil dibuat! Mengalihkan ke detail pesanan...', 'success');
+                setTimeout(() => {
+                    window.location.href = `/orders/${result.order_id}`;
+                }, 1500);
+            } else {
+                showMessage(result.error || 'Checkout gagal.', 'danger');
+                checkoutBtn.disabled = false;
+                checkoutBtn.textContent = 'Buat Pesanan';
+            }
+        } catch (error) {
+            showMessage('Terjadi kesalahan. Coba lagi.', 'danger');
+            checkoutBtn.disabled = false;
+            checkoutBtn.textContent = 'Buat Pesanan';
+        }
+    });
+}
+
+async function loadCouriers(courierEl) {
+    if (!courierEl) {
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/couriers');
+        const data = await res.json();
+        
+        courierEl.innerHTML = '';
+        if (data.couriers && data.couriers.length > 0) {
+            data.couriers.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.value;
+                opt.textContent = c.label;
+                courierEl.appendChild(opt);
+            });
+        } else {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'No couriers available';
+            courierEl.appendChild(opt);
+        }
+    } catch (e) {
+        courierEl.innerHTML = '<option value="">Error loading couriers</option>';
+    }
+}
+
+function renderShippingOptions(options, shippingOptionsList, shippingOptionsContainer) {
+    if (!shippingOptionsList || !shippingOptionsContainer) {
+        return;
+    }
+    
+    shippingOptionsList.innerHTML = '';
+    if (!options || !options.length) {
+        shippingOptionsList.innerHTML = '<div class="shipping-option-none">No shipping options available for this route.</div>';
+        shippingOptionsContainer.style.display = 'block';
+        return;
+    }
+
+    options.forEach((option, index) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'shipping-option';
+        const showOriginal = option.discount_amount > 0;
+        const originalPriceHtml = showOriginal
+            ? `<span style="text-decoration:line-through;color:#9ca3af;font-size:.8rem;margin-right:6px;">Rp ${option.original_price.toLocaleString('id-ID')}</span>`
+            : '';
+        item.innerHTML = `
+            <div class="shipping-option-header">
+                <span class="shipping-option-courier">${option.courier_name}</span>
+                <span class="shipping-option-price">${originalPriceHtml}Rp ${(option.final_price || option.price).toLocaleString('id-ID')}</span>
+            </div>
+            <div class="shipping-option-details">
+                <span class="shipping-option-service">${option.service_name}</span>
+                <span class="shipping-option-etd">Est: ${option.etd}</span>
+            </div>
+        `;
+        item.addEventListener('click', function() {
+            // Store selected shipping in window scope for access across functions
+            window._selectedShipping = {
+                service: option.service,
+                courier: option.courier_code,
+                cost: option.final_price || option.price,
+            };
+
+            const originalPrice = option.original_price || option.price;
+            const discountAmount = option.discount_amount || 0;
+            const finalPrice = option.final_price || option.price;
+            const hasDiscount = discountAmount > 0;
+
+            document.querySelectorAll('#shipping-options .shipping-option').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+            const displayTotalEl = document.getElementById('display-total');
+            const currentSubtotal = displayTotalEl ? parseInt(displayTotalEl.dataset.subtotal || 0) : 0;
+            const displayShipping = document.getElementById('display-shipping');
+            const displayOriginalShipping = document.getElementById('display-original-shipping');
+            const displayShippingDiscount = document.getElementById('display-shipping-discount');
+            const originalShippingRow = document.getElementById('original-shipping-row');
+            const shippingDiscountRow = document.getElementById('shipping-discount-row');
+
+            if (displayShipping) displayShipping.textContent = 'Rp ' + finalPrice.toLocaleString('id-ID');
+            if (displayOriginalShipping) displayOriginalShipping.textContent = 'Rp ' + originalPrice.toLocaleString('id-ID');
+            if (displayShippingDiscount) displayShippingDiscount.textContent = '- Rp ' + discountAmount.toLocaleString('id-ID');
+            if (originalShippingRow) originalShippingRow.style.display = hasDiscount ? 'flex' : 'none';
+            if (shippingDiscountRow) shippingDiscountRow.style.display = hasDiscount ? 'flex' : 'none';
+            if (displayTotalEl) displayTotalEl.textContent = 'Rp ' + (currentSubtotal + finalPrice).toLocaleString('id-ID');
+            showMessage(`${option.courier_name} ${option.service_name} selected — Rp ${finalPrice.toLocaleString('id-ID')}`, 'success');
+        });
+        shippingOptionsList.appendChild(item);
+    });
+
+    shippingOptionsContainer.style.display = 'block';
+}
+
+function showMessage(message, type) {
+    const messageDiv = document.getElementById('checkout-message');
+    if (!messageDiv) {
+        alert(message);
+        return;
+    }
+    messageDiv.className = `alert alert-${type}`;
+    messageDiv.textContent = message;
+    messageDiv.style.display = 'block';
+    setTimeout(() => { messageDiv.style.display = 'none'; }, 5000);
+}
+</script>
+
+{% if config.TIKTOK_PIXEL_ID %}
+<script>
+(function () {
+  _ttqEventOnce('initiatecheckout', function () {
+    ttq.track('InitiateCheckout', {
+      value: {{ subtotal | default(0) | int }},
+      currency: 'IDR',
+      contents: [
+        {% for item in items %}
+        {
+          content_id: '{{ item.product.id }}',
+          content_name: {{ item.product.name | tojson }},
+          content_type: 'product',
+          price: {{ item.unit_price }},
+          quantity: {{ item.quantity }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+    });
+  });
+})();
+</script>
+{% endif %}
+
+{% endblock %}
+

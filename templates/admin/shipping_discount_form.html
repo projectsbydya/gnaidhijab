@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}{% if discount %}Edit Shipping Discount{% else %}Create Shipping Discount{% endif %} - Admin{% endblock %}
+
+{% block content %}
+<!-- ADMIN HEADER -->
+<section class="admin-header">
+    <div class="admin-header-content">
+        <div>
+            <span class="admin-label">Admin Panel</span>
+            <h1 class="admin-title">{% if discount %}Edit Shipping Discount{% else %}Create Shipping Discount{% endif %}</h1>
+        </div>
+    </div>
+</section>
+
+<!-- SHIPPING DISCOUNT FORM -->
+<section class="admin-section">
+    <div class="admin-container">
+        <form method="post" class="admin-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-section">
+                <h2 class="form-section-title">Basic Information</h2>
+                <div class="form-group">
+                    <label class="form-label">Name</label>
+                    <input type="text" name="name" class="form-control" value="{{ (form_data.name if form_data else (discount.name if discount else '')) or '' }}" placeholder="e.g., Free Shipping Promo">
+                    <small class="form-text">Optional name for internal reference.</small>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Discount Type <span class="text-danger">*</span></label>
+                        <select name="discount_type" class="form-control" required>
+                            <option value="">Select type</option>
+                            <option value="fixed" {% if (form_data and form_data.discount_type == 'fixed') or (discount and discount.discount_type == 'fixed') %}selected{% endif %}>Fixed Amount</option>
+                            <option value="percentage" {% if (form_data and form_data.discount_type == 'percentage') or (discount and discount.discount_type == 'percentage') %}selected{% endif %}>Percentage</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Value <span class="text-danger">*</span></label>
+                        <input type="number" name="value" class="form-control" min="0" value="{{ (form_data.value if form_data else (discount.value if discount else '')) or '' }}" required>
+                        <small class="form-text">Amount in Rupiah for fixed, or percent (0-100) for percentage.</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2 class="form-section-title">Conditions</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Minimum Order Amount</label>
+                        <input type="number" name="minimum_order_amount" class="form-control" min="0" value="{{ (form_data.minimum_order_amount if form_data else (discount.minimum_order_amount if discount else '0')) or '0' }}">
+                        <small class="form-text">Minimum subtotal required to apply this discount.</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Maximum Discount Amount</label>
+                        <input type="number" name="maximum_discount_amount" class="form-control" min="0" value="{{ (form_data.maximum_discount_amount if form_data else (discount.maximum_discount_amount if discount else '')) or '' }}">
+                        <small class="form-text">Leave empty for no limit. For percentage, this caps the discount. For fixed, must be &ge; value.</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2 class="form-section-title">Active Period</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Starts At</label>
+                        <input type="datetime-local" name="starts_at" class="form-control"
+                               value="{% if form_data and form_data.starts_at %}{% if form_data.starts_at is string %}{{ form_data.starts_at }}{% else %}{{ form_data.starts_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}{% elif discount and discount.starts_at %}{{ discount.starts_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ends At</label>
+                        <input type="datetime-local" name="ends_at" class="form-control"
+                               value="{% if form_data and form_data.ends_at %}{% if form_data.ends_at is string %}{{ form_data.ends_at }}{% else %}{{ form_data.ends_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}{% elif discount and discount.ends_at %}{{ discount.ends_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-check">
+                    <input type="checkbox" name="is_active" class="form-check-input" id="is_active" {% if (form_data is defined and is_active) or (discount is defined and discount.is_active) %}checked{% endif %}>
+                    <label class="form-check-label" for="is_active">Activate this discount</label>
+                </div>
+                <small class="form-text">Inactive discounts will not be applied at checkout.</small>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-primary">Save Discount</button>
+                <a href="{{ url_for('admin.shipping_discount_list') }}" class="btn btn-outline">Cancel</a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

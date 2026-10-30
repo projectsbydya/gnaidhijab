@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Kebijakan Pengiriman — {{ config.STORE_NAME }}{% endblock %}
+{% block meta_description %}Pelajari tentang metode pengiriman, estimasi waktu pengiriman, dan biaya pengiriman {{ config.STORE_NAME }} di seluruh Indonesia.{% endblock %}
+
+{% block content %}
+<div class="policy-page container">
+  <div class="policy-header">
+    <h1 class="policy-title">Kebijakan Pengiriman</h1>
+    <p class="policy-updated">Terakhir diperbarui: 1 Mei 2025</p>
+  </div>
+
+  <div class="policy-body">
+
+    <section class="policy-section">
+      <h2>1. Pemrosesan Pesanan</h2>
+      <p>Pesanan diproses dalam <strong>1–2 hari kerja</strong> setelah pembayaran dikonfirmasi. Pesanan yang dilakukan pada akhir pekan atau hari libur nasional akan diproses pada hari kerja berikutnya.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>2. Asal Pengiriman</h2>
+      <p>Semua pesanan dikirim dari <strong>{{ config.STORE_LOCATION }}</strong>.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>3. Kurir yang Tersedia</h2>
+      <p>Kami bermitra dengan layanan kurir terpercaya termasuk JNE, J&T Express, SiCepat, dan lainnya yang tersedia di checkout. Opsi kurir dan tarif dihitung secara real time berdasarkan alamat pengiriman Anda.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>4. Estimasi Waktu Pengiriman</h2>
+      <p>Waktu pengiriman bervariasi tergantung tujuan dan layanan yang dipilih:</p>
+      <ul>
+        <li><strong>Kota yang sama (dalam {{ config.STORE_LOCATION }}):</strong> 1–2 hari kerja</li>
+        <li><strong>Pulau Jawa:</strong> 2–4 hari kerja</li>
+        <li><strong>Luar Jawa:</strong> 3–7 hari kerja</li>
+      </ul>
+      <p>Ini hanya estimasi. Keterlambatan dapat terjadi karena permintaan tinggi, cuaca, atau masalah kapasitas kurir.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>5. Biaya Pengiriman</h2>
+      <p>Biaya pengiriman dihitung saat checkout berdasarkan berat pesanan Anda dan alamat pengiriman. Biaya pasti akan ditampilkan sebelum Anda mengkonfirmasi pembayaran.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>6. Melacak Pesanan Anda</h2>
+      <p>Setelah pesanan Anda dikirim, Anda akan menerima email berisi nomor resi. Anda dapat menggunakan nomor ini di website atau aplikasi kurir untuk melacak paket secara real time.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>7. Pengiriman Gagal</h2>
+      <p>Jika upaya pengiriman gagal karena tidak ada yang tersedia untuk menerima paket, kurir akan menyimpan barang di gudang terdekat. Silakan hubungi kurir langsung menggunakan nomor resi Anda untuk mengatur pengiriman ulang. {{ config.STORE_NAME }} tidak bertanggung jawab atas paket yang dikembalikan karena pengiriman gagal.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>8. Kontak</h2>
+      <p>Untuk pertanyaan terkait pengiriman, silakan hubungi kami melalui <a href="https://wa.me/{{ config.WHATSAPP_NUMBER }}" target="_blank" rel="noopener">WhatsApp</a>.</p>
+    </section>
+
+  </div>
+</div>
+{% endblock %}

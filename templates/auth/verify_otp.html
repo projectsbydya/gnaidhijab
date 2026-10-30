@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Verifikasi OTP{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card p-4 shadow-sm">
+            <h3 class="mb-4">Verifikasi OTP</h3>
+            <p>Masukkan email dan kode OTP yang sudah dikirim ke email Anda.</p>
+            <form method="post" action="{{ url_for('auth.verify_otp') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" name="email" class="form-control" value="{{ email or '' }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">OTP</label>
+                    <input type="text" name="otp" class="form-control" maxlength="6" required>
+                </div>
+                <button class="btn btn-dark w-100">OK</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

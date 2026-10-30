@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Edit Footer - Admin{% endblock %}
+
+{% block content %}
+<!-- ADMIN HEADER -->
+<section class="admin-header">
+    <div class="admin-header-content">
+        <div>
+            <span class="admin-label">Admin Panel</span>
+            <h1 class="admin-title">Edit Footer</h1>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER FORM -->
+<section class="admin-section">
+    <div class="admin-container">
+        <form method="post" class="admin-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-section">
+                <h2 class="form-section-title">Tentang Kami</h2>
+                <div class="form-group">
+                    <label class="form-label">Teks Tentang Kami</label>
+                    <textarea name="about_text" class="form-control" rows="4" placeholder="Deskripsi singkat tentang toko Anda...">{{ setting.about_text or '' }}</textarea>
+                    <small class="form-text">Tampil di kolom "Tentang Kami" pada footer. Kosongkan untuk menggunakan teks default.</small>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2 class="form-section-title">Informasi Operasional</h2>
+                <div class="form-group">
+                    <label class="form-label">Jam Operasional</label>
+                    <input type="text" name="operating_hours" class="form-control"
+                           value="{{ setting.operating_hours or '' }}"
+                           placeholder="Senin - Sabtu (08.00 - 17.00)">
+                    <small class="form-text">Tampil di kolom "Informasi" pada footer. Kosongkan untuk menggunakan teks default.</small>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2 class="form-section-title">Copyright</h2>
+                <div class="form-group">
+                    <label class="form-label">Teks Copyright</label>
+                    <input type="text" name="copyright_text" class="form-control"
+                           value="{{ setting.copyright_text or '' }}"
+                           placeholder="© {{ year }} {{ config.STORE_NAME }}">
+                    <small class="form-text">Tampil di bagian paling bawah halaman. Kosongkan untuk menggunakan format default (© tahun nama toko).</small>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Simpan Footer</button>
+                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline">Batal</a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

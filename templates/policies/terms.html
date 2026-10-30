@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Syarat & Ketentuan — {{ config.STORE_NAME }}{% endblock %}
+{% block meta_description %}Baca Syarat & Ketentuan {{ config.STORE_NAME }}. Dengan menggunakan website kami dan melakukan pemesanan, Anda menyetujui syarat-syarat ini.{% endblock %}
+
+{% block content %}
+<div class="policy-page container">
+  <div class="policy-header">
+    <h1 class="policy-title">Syarat &amp; Ketentuan</h1>
+    <p class="policy-updated">Terakhir diperbarui: 1 Mei 2025</p>
+  </div>
+
+  <div class="policy-body">
+
+    <section class="policy-section">
+      <h2>1. Penerimaan Syarat</h2>
+      <p>Dengan mengakses atau menggunakan website {{ config.STORE_NAME }} dan melakukan pemesanan, Anda menyetujui untuk terikat oleh Syarat &amp; Ketentuan ini. Jika Anda tidak setuju, mohon untuk tidak menggunakan layanan kami.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>2. Produk</h2>
+      <p>Semua produk tergantung pada ketersediaan. Kami berhak untuk menghentikan produk kapan saja. Gambar produk hanya untuk ilustrasi dan mungkin sedikit berbeda dari barang asli karena kalibrasi monitor dan pencahayaan.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>3. Harga</h2>
+      <p>Semua harga tercantum dalam Rupiah Indonesia (IDR) dan sudah termasuk pajak yang berlaku. Harga dapat berubah tanpa pemberitahuan sebelumnya. Harga yang dikenakan adalah harga yang ditampilkan pada saat checkout.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>4. Pesanan &amp; Pembayaran</h2>
+      <p>Pesanan dikonfirmasi hanya setelah pembayaran penuh diterima. Kami menerima pembayaran melalui metode yang tersedia di checkout. Kami berhak untuk membatalkan pesanan jika pembayaran tidak diselesaikan dalam batas waktu yang ditentukan.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>5. Kekayaan Intelektual</h2>
+      <p>Semua konten di website ini — termasuk gambar, teks, logo, dan desain — adalah milik {{ config.STORE_NAME }} dan dilindungi oleh undang-undang hak cipta yang berlaku. Anda tidak boleh mereproduksi atau menggunakan konten apa pun tanpa izin tertulis sebelumnya.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>6. Batasan Tanggung Jawab</h2>
+      <p>{{ config.STORE_NAME }} tidak bertanggung jawab atas kerugian tidak langsung, insidental, atau konsekuensial yang timbul dari penggunaan produk atau website kami. Tanggung jawab kami terbatas pada harga pembelian produk yang bersangkutan.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>7. Perubahan Syarat</h2>
+      <p>Kami berhak untuk memperbarui Syarat &amp; Ketentuan ini kapan saja. Perubahan akan diposting di halaman ini dengan tanggal yang diperbarui. Penggunaan berkelanjutan atas layanan kami merupakan penerimaan atas syarat yang telah direvisi.</p>
+    </section>
+
+    <section class="policy-section">
+      <h2>8. Kontak</h2>
+      <p>Untuk pertanyaan tentang syarat ini, silakan hubungi kami melalui <a href="https://wa.me/{{ config.WHATSAPP_NUMBER }}" target="_blank" rel="noopener">WhatsApp</a>.</p>
+    </section>
+
+  </div>
+</div>
+{% endblock %}

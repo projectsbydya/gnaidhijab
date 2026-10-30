@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% block title %}{{ config.STORE_NAME }} | Modern Hijab Fashion{% endblock %}
+
+{% block content %}
+<!-- HERO CTA SECTION -->
+<section class="hero-fullscreen hero-cta" {% if cta and cta.background_image %}style="background-image: url('{{ url_for('static', filename=cta.background_image) }}'); background-size: cover; background-position: center;"{% endif %}>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+        <span class="hero-tagline fade-up">{{ cta.title if cta else 'New Collection' }}</span>
+        <h1 class="hero-title fade-up delay-1">{{ config.STORE_NAME }}</h1>
+        <p class="hero-subtitle fade-up delay-2">Modern Hijab Fashion</p>
+        <p class="hero-desc fade-up delay-3">{{ cta.description if cta else 'Designed for the confident woman who embraces modesty with contemporary style' }}</p>
+        <div class="d-flex gap-3 justify-content-center flex-wrap fade-up delay-4">
+            <a href="{{ cta.button_link if cta else url_for('shop.products') }}" class="btn btn-primary">{{ cta.button_text if cta else 'Shop Now' }}</a>
+            <a href="#collection" class="btn btn-outline">View Collection</a>
+        </div>
+    </div>
+    <div class="scroll-indicator">
+        <span>Scroll</span>
+        <div class="scroll-line"></div>
+    </div>
+</section>
+
+{% if video %}
+<!-- VIDEO SECTION -->
+<section class="video-section">
+    <div class="container-narrow text-center">
+        <span class="section-label reveal">Our Story</span>
+        <h2 class="section-title reveal">The Art of Modesty</h2>
+    </div>
+    <div class="video-wrapper mt-5 reveal">
+        <video autoplay muted loop playsinline>
+            <source src="{{ url_for('static', filename=video.video_file) }}" type="video/mp4">
+        </video>
+    </div>
+</section>
+{% endif %}
+
+<!-- VALUES SECTION -->
+<section class="values-section">
+    <div class="container-fluid">
+        <div class="values-grid">
+            <div class="value-card reveal">
+                <span class="value-number">01</span>
+                <h3 class="value-title">Premium Quality</h3>
+                <p class="value-desc">Carefully selected fabrics that feel luxurious and comfortable all day</p>
+            </div>
+            <div class="value-card reveal">
+                <span class="value-number">02</span>
+                <h3 class="value-title">Timeless Design</h3>
+                <p class="value-desc">Contemporary styles that remain elegant beyond seasonal trends</p>
+            </div>
+            <div class="value-card reveal">
+                <span class="value-number">03</span>
+                <h3 class="value-title">Modest Fashion</h3>
+                <p class="value-desc">Modern silhouettes that honor your values without compromise</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FEATURED PRODUCTS -->
+<section id="collection" class="products-section">
+    <div class="container-fluid">
+        <div class="section-split">
+            <div>
+                <span class="section-label reveal">New Arrivals</span>
+                <h2 class="section-title reveal">Featured Collection</h2>
+            </div>
+            <div class="text-end">
+                <p class="text-body reveal">Thoughtfully designed pieces for the modern wardrobe</p>
+                <a href="{{ url_for('shop.products') }}" class="link-arrow reveal">View All <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+
+        <div class="products-grid">
+            {% for product in featured_products %}
+            {%- set href = url_for('shop.product_detail_slug', slug=product.slug) if product.slug else url_for('shop.product_detail', product_id=product.id) -%}
+            {%- set cover = product.primary_image -%}
+            {%- set active_variants = product.variants | selectattr('is_active') | list -%}
+            {%- set colors = [] -%}
+            {%- for v in active_variants -%}
+              {%- if v.color and v.color not in colors -%}{%- set _ = colors.append(v.color) -%}{%- endif -%}
+            {%- endfor -%}
+            {%- set sold_out = product.effective_stock <= 0 -%}
+            {%- set dr = calculate_product_discount(product) -%}
+
+            <article class="product-card reveal">
+              <a href="{{ href }}" aria-label="{{ product.name }}">
+                <div class="product-image">
+                  {% if cover %}
+                  <img src="{{ url_for('static', filename=cover) }}"
+                       alt="{{ product.name }}"
+                       loading="lazy"
+                       decoding="async">
+                  {% else %}
+                  <div class="product-image-empty"><i class="bi bi-image"></i></div>
+                  {% endif %}
+                  {% if sold_out %}
+                  <span class="product-badge product-badge--sold">Sold out</span>
+                  {% endif %}
+                  {% if dr.is_applied %}
+                  {%- set disc_pct = dr.discount_value if dr.discount_type == 'percentage' else ((dr.savings * 100) // dr.original_price) -%}
+                  <span class="product-badge product-badge--sale">-{{ disc_pct }}%</span>
+                  {% endif %}
+                  <div class="product-hover" aria-hidden="true">
+                    <span class="product-hover-text">Quick View</span>
+                  </div>
+                </div>
+                <div class="product-info">
+                  <h3 class="product-name">{{ product.name }}</h3>
+                  <p class="product-price">
+                    {%- if dr.is_applied %}<span class="product-price--original">Rp {{ '{:,}'.format(dr.original_price) }}</span>{% endif -%}
+                    Rp {{ '{:,}'.format(dr.final_price) }}
+                  </p>
+                  {%- if dr.is_applied %}<p class="product-savings">Hemat Rp {{ '{:,}'.format(dr.savings) }}</p>{% endif %}
+                  {% if colors %}
+                  <div class="product-colors" aria-label="Available colours">
+                    {% for c in colors[:5] %}
+                    <span class="product-color-dot" title="{{ c }}" data-bg="{{ c | lower }}"></span>
+                    {% endfor %}
+                    {% if colors | length > 5 %}
+                    <span class="product-color-more">+{{ colors | length - 5 }}</span>
+                    {% endif %}
+                  </div>
+                  {% endif %}
+                </div>
+              </a>
+            </article>
+            {% else %}
+            <div class="col-12 text-center py-5">
+                <p class="text-body">New collection coming soon</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- COLOR DOT INIT (inline, runs before paint) -->
+<script>
+document.querySelectorAll('.product-color-dot[data-bg]').forEach(function(el){
+  el.style.background = el.dataset.bg;
+});
+</script>
+
+{% endblock %}

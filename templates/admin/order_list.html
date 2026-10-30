@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Manage Orders - Admin{% endblock %}
+
+{% block content %}
+<!-- ADMIN HEADER -->
+<section class="admin-header">
+    <div class="admin-header-content">
+        <div>
+            <span class="admin-label">Admin Panel</span>
+            <h1 class="admin-title">Orders</h1>
+        </div>
+        <a class="btn btn-outline btn-sm" href="{{ url_for('admin.dashboard') }}">Back to Dashboard</a>
+    </div>
+</section>
+
+<!-- ORDERS TABLE -->
+<section class="admin-section">
+    <div class="admin-container">
+        <div class="admin-table-wrapper">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Customer</th>
+                        <th>Total</th>
+                        <th>Order Status</th>
+                        <th>Payment</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>#{{ order.id }}</td>
+                        <td>{{ order.user.name|censor }}</td>
+                        <td>Rp {{ '{:,}'.format(order.total_price) }}</td>
+                        <td><span class="admin-badge admin-badge--{{ order.normalized_status }}">{{ order.normalized_status|replace('_', ' ')|title }}</span></td>
+                        <td>{{ order.payment.status|replace('_', ' ')|title if order.payment else 'Unpaid' }}</td>
+                        <td>{{ order.created_at.strftime('%d %b %Y') }}</td>
+                        <td><a class="btn btn-outline btn-sm" href="{{ url_for('admin.order_detail', order_id=order.id) }}">View</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="admin-back">
+            <a href="{{ url_for('admin.dashboard') }}" class="link-arrow"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

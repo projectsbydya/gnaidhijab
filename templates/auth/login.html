@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Sign In - {{ config.STORE_NAME }}{% endblock %}
+
+{% block content %}
+<!-- PAGE HEADER -->
+<section class="page-header">
+    <div class="container-narrow">
+        <span class="section-label">Welcome Back</span>
+        <h1 class="page-title">Sign In</h1>
+    </div>
+</section>
+
+<!-- LOGIN FORM -->
+<section class="section">
+    <div class="container-narrow">
+        <div class="auth-form-container">
+            <form method="post" class="auth-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" name="email" class="form-control" placeholder="your@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-control" placeholder="Enter your password" required>
+                </div>
+                <button class="btn btn-primary btn-large w-100">Sign In</button>
+            </form>
+            <div class="auth-links">
+                <a href="{{ url_for('auth.request_reset_password') }}" class="link-small">Forgot Password?</a>
+                <p class="auth-alt">Don't have an account? <a href="{{ url_for('auth.register') }}">Create one</a></p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

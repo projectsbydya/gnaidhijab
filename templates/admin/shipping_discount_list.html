@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Manage Shipping Discounts - Admin{% endblock %}
+
+{% block content %}
+<!-- ADMIN HEADER -->
+<section class="admin-header">
+    <div class="admin-header-content">
+        <div>
+            <span class="admin-label">Admin Panel</span>
+            <h1 class="admin-title">Shipping Discounts</h1>
+        </div>
+        <a href="{{ url_for('admin.shipping_discount_create') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Discount</a>
+    </div>
+</section>
+
+<!-- SHIPPING DISCOUNT LIST -->
+<section class="admin-section">
+    <div class="admin-container">
+        {% if discounts %}
+        <div class="admin-table-wrapper">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Value</th>
+                        <th>Min. Order</th>
+                        <th>Max. Discount</th>
+                        <th>Period</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for discount in discounts %}
+                    <tr>
+                        <td>{{ discount.name or '-' }}</td>
+                        <td>{{ discount.discount_type | capitalize }}</td>
+                        <td>
+                            {% if discount.discount_type == 'percentage' %}
+                            {{ discount.value }}%
+                            {% else %}
+                            Rp {{ '{:,}'.format(discount.value) }}
+                            {% endif %}
+                        </td>
+                        <td>Rp {{ '{:,}'.format(discount.minimum_order_amount) }}</td>
+                        <td>
+                            {% if discount.maximum_discount_amount is not none %}
+                            Rp {{ '{:,}'.format(discount.maximum_discount_amount) }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if discount.starts_at or discount.ends_at %}
+                            {{ discount.starts_at.strftime('%d %b %Y') if discount.starts_at else 'Start' }}
+                            &ndash;
+                            {{ discount.ends_at.strftime('%d %b %Y') if discount.ends_at else 'End' }}
+                            {% else %}
+                            <span class="text-muted">Always</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if discount.is_currently_active() %}
+                            <span class="admin-badge admin-badge--success">Active</span>
+                            {% elif discount.is_active %}
+                            <span class="admin-badge admin-badge--warning">Scheduled</span>
+                            {% else %}
+                            <span class="admin-badge admin-badge--secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="admin-actions">
+                                <a href="{{ url_for('admin.shipping_discount_edit', discount_id=discount.id) }}" class="btn btn-outline btn-sm">Edit</a>
+                                <form method="post" action="{{ url_for('admin.shipping_discount_toggle', discount_id=discount.id) }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    {% if discount.is_active %}
+                                    <button class="btn btn-sm btn-warning" onclick="return confirm('Deactivate this discount?')">Deactivate</button>
+                                    {% else %}
+                                    <button class="btn btn-sm btn-success" onclick="return confirm('Activate this discount?')">Activate</button>
+                                    {% endif %}
+                                </form>
+                                <form method="post" action="{{ url_for('admin.shipping_discount_delete', discount_id=discount.id) }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-sm btn-danger" onclick="return confirm('Delete this shipping discount?')">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-truck empty-icon"></i>
+            <h2 class="empty-title">No shipping discounts</h2>
+            <p class="empty-desc">Create a shipping discount to reduce customer shipping costs</p>
+            <a href="{{ url_for('admin.shipping_discount_create') }}" class="btn btn-primary">Create Discount</a>
+        </div>
+        {% endif %}
+        <div class="admin-back">
+            <a href="{{ url_for('admin.dashboard') }}" class="link-arrow"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

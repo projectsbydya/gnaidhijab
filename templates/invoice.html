@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Invoice #{{ order.id }} — {{ store_name }}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    color: #1a1a1a;
+    background: #fff;
+    padding: 48px 52px;
+  }
+
+  /* ── Header ──────────────────────────────────────────── */
+  .inv-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 36px;
+    padding-bottom: 24px;
+    border-bottom: 2px solid #1a1a1a;
+  }
+
+  .inv-brand {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #1a1a1a;
+  }
+
+  .inv-brand-sub {
+    font-size: 11px;
+    color: #777;
+    margin-top: 3px;
+    letter-spacing: 0.05em;
+  }
+
+  .inv-meta {
+    text-align: right;
+  }
+
+  .inv-meta .inv-label {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #1a1a1a;
+  }
+
+  .inv-meta table {
+    margin-top: 6px;
+    border-collapse: collapse;
+  }
+
+  .inv-meta td {
+    padding: 2px 0 2px 16px;
+    font-size: 12px;
+    color: #555;
+  }
+
+  .inv-meta td:first-child {
+    color: #999;
+    padding-left: 0;
+    text-align: left;
+  }
+
+  .inv-meta td:last-child {
+    text-align: right;
+    font-weight: 500;
+    color: #1a1a1a;
+  }
+
+  /* ── Parties ─────────────────────────────────────────── */
+  .inv-parties {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    gap: 32px;
+  }
+
+  .inv-party {
+    flex: 1;
+  }
+
+  .inv-party-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #999;
+    margin-bottom: 8px;
+  }
+
+  .inv-party-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+  }
+
+  .inv-party p {
+    font-size: 12px;
+    color: #555;
+    line-height: 1.6;
+  }
+
+  /* ── Status badge ────────────────────────────────────── */
+  .inv-status-bar {
+    margin-bottom: 28px;
+  }
+
+  .inv-badge {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .inv-badge--paid   { background: #d1fae5; color: #065f46; }
+  .inv-badge--unpaid { background: #fef3c7; color: #92400e; }
+  .inv-badge--expired { background: #fee2e2; color: #991b1b; }
+  .inv-badge--shipped { background: #dbeafe; color: #1e40af; }
+
+  /* ── Items table ─────────────────────────────────────── */
+  .inv-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 24px;
+  }
+
+  .inv-table thead tr {
+    background: #1a1a1a;
+    color: #fff;
+  }
+
+  .inv-table thead th {
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: left;
+  }
+
+  .inv-table thead th.right { text-align: right; }
+
+  .inv-table tbody tr {
+    border-bottom: 1px solid #efefef;
+  }
+
+  .inv-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .inv-table tbody td {
+    padding: 10px 12px;
+    font-size: 12.5px;
+    color: #333;
+    vertical-align: top;
+  }
+
+  .inv-table tbody td.right { text-align: right; }
+
+  .inv-item-name {
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  .inv-item-variant {
+    font-size: 11px;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  /* ── Totals ──────────────────────────────────────────── */
+  .inv-totals {
+    width: 280px;
+    margin-left: auto;
+    margin-bottom: 32px;
+  }
+
+  .inv-totals table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .inv-totals td {
+    padding: 5px 0;
+    font-size: 12.5px;
+    color: #555;
+  }
+
+  .inv-totals td:last-child {
+    text-align: right;
+    font-weight: 500;
+    color: #1a1a1a;
+  }
+
+  .inv-totals .inv-total-grand {
+    border-top: 2px solid #1a1a1a;
+    margin-top: 4px;
+  }
+
+  .inv-totals .inv-total-grand td {
+    padding-top: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+
+  /* ── Shipping info ───────────────────────────────────── */
+  .inv-shipping {
+    background: #f9f9f9;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin-bottom: 32px;
+  }
+
+  .inv-shipping-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #999;
+    margin-bottom: 10px;
+  }
+
+  .inv-shipping table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .inv-shipping td {
+    padding: 3px 0;
+    font-size: 12px;
+  }
+
+  .inv-shipping td:first-child {
+    color: #999;
+    width: 140px;
+  }
+
+  .inv-shipping td:last-child {
+    font-weight: 500;
+    color: #1a1a1a;
+  }
+
+  /* ── Footer ──────────────────────────────────────────── */
+  .inv-footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid #e8e8e8;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #aaa;
+  }
+</style>
+</head>
+<body>
+
+  <!-- ── HEADER ── -->
+  <div class="inv-header">
+    <div>
+      <div class="inv-brand">{{ store_name }}</div>
+      <div class="inv-brand-sub">{{ store_location }}</div>
+    </div>
+    <div class="inv-meta">
+      <div class="inv-label">Invoice</div>
+      <table>
+        <tr><td>Invoice No.</td><td>#{{ order.id }}</td></tr>
+        <tr><td>Order Date</td><td>{{ order.created_at.strftime('%d %B %Y') }}</td></tr>
+        <tr><td>Payment Status</td><td>{{ payment_status }}</td></tr>
+        {% if order.payment and order.payment.paid_at %}
+        <tr><td>Paid On</td><td>{{ order.payment.paid_at.strftime('%d %B %Y') }}</td></tr>
+        {% endif %}
+        {% if order.resi_number %}
+        <tr><td>Tracking No.</td><td>{{ order.resi_number }}</td></tr>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+
+  <!-- ── PARTIES ── -->
+  <div class="inv-parties">
+    <div class="inv-party">
+      <div class="inv-party-title">From</div>
+      <div class="inv-party-name">{{ store_name }}</div>
+      <p>{{ store_location }}</p>
+    </div>
+    <div class="inv-party">
+      <div class="inv-party-title">Bill To</div>
+      <div class="inv-party-name">{{ order.user.name }}</div>
+      <p>{{ order.user.email }}</p>
+      {% if order.user.phone %}<p>{{ order.user.phone }}</p>{% endif %}
+    </div>
+    <div class="inv-party">
+      <div class="inv-party-title">Ship To</div>
+      <p>{{ order.shipping_address }}</p>
+      {% if order.destination_postal %}<p>Kode Pos: {{ order.destination_postal }}</p>{% endif %}
+    </div>
+  </div>
+
+  <!-- ── STATUS ── -->
+  <div class="inv-status-bar">
+    <span class="inv-badge inv-badge--{{ badge_class }}">{{ payment_status }}</span>
+  </div>
+
+  <!-- ── ITEMS TABLE ── -->
+  <table class="inv-table">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th class="right" style="width:60px">Qty</th>
+        <th class="right" style="width:110px">Unit Price</th>
+        <th class="right" style="width:120px">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in order.items %}
+      <tr>
+        <td>
+          <div class="inv-item-name">{{ item.product.name }}</div>
+          {% if item.variant %}
+          <div class="inv-item-variant">{{ item.variant.display_name }}</div>
+          {% endif %}
+        </td>
+        <td class="right">{{ item.quantity }}</td>
+        <td class="right">
+          {% if item.discount_amount %}
+          <span style="text-decoration:line-through;color:#9ca3af;font-size:.8em;">Rp {{ '{:,}'.format(item.original_price) }}</span><br>
+          {% endif %}
+          Rp {{ '{:,}'.format(item.price) }}
+        </td>
+        <td class="right">Rp {{ '{:,}'.format(item.price * item.quantity) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- ── TOTALS ── -->
+  <div class="inv-totals">
+    <table>
+      <tr>
+        <td>Subtotal</td>
+        <td>Rp {{ '{:,}'.format(subtotal) }}</td>
+      </tr>
+      {% if order.shipping_discount_amount > 0 %}
+      <tr>
+        <td>Ongkir Asli</td>
+        <td>Rp {{ '{:,}'.format(order.original_shipping_cost) }}</td>
+      </tr>
+      <tr>
+        <td>Diskon Ongkir</td>
+        <td style="color:#16a34a;">- Rp {{ '{:,}'.format(order.shipping_discount_amount) }}</td>
+      </tr>
+      {% endif %}
+      <tr>
+        <td>Ongkir ({{ order.courier | upper }} – {{ order.service }})</td>
+        <td>Rp {{ '{:,}'.format(order.shipping_cost) }}</td>
+      </tr>
+      <tr class="inv-total-grand">
+        <td><strong>Total</strong></td>
+        <td><strong>Rp {{ '{:,}'.format(order.total_price) }}</strong></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ── SHIPPING DETAILS ── -->
+  <div class="inv-shipping">
+    <div class="inv-shipping-title">Shipping Details</div>
+    <table>
+      <tr><td>Courier</td><td>{{ order.courier | upper }}</td></tr>
+      <tr><td>Service</td><td>{{ order.service }}</td></tr>
+      {% if order.resi_number %}
+      <tr><td>Tracking Number</td><td>{{ order.resi_number }}</td></tr>
+      {% endif %}
+      {% if order.shipment_id %}
+      <tr><td>Shipment ID</td><td>{{ order.shipment_id }}</td></tr>
+      {% endif %}
+      <tr><td>Order Status</td><td>{{ order.status | capitalize }}</td></tr>
+    </table>
+  </div>
+
+  <!-- ── FOOTER ── -->
+  <div class="inv-footer">
+    <span>{{ store_name }} — {{ store_location }}</span>
+    <span>Generated on {{ generated_at }}</span>
+  </div>
+
+</body>
+</html>
